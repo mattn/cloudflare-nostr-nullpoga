@@ -1,0 +1,18 @@
+{
+  "name": "nullpoga",
+  "version": "0.0.0",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230419.0",
+    "typescript": "^5.0.4",
+    "wrangler": "2.12.3"
+  },
+  "private": true,
+  "scripts": {
+    "start": "wrangler dev",
+    "deploy": "wrangler publish"
+  },
+  "dependencies": {
+    "nostr-tools": "^1.10.1",
+    "websocket-polyfill": "^0.0.3"
+  }
+}
