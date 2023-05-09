@@ -17,7 +17,7 @@ const page = `
 <!doctype html>
 <link href="//fonts.bunny.net/css?family=sigmar-one:400" rel="stylesheet" />
 <meta charset="utf-8" />
-<title>Cloudflare Gyazo</title>
+<title>Cloudflare NullpoGa</title>
 <style>
 body {
   font-size: 40px;
@@ -35,8 +35,8 @@ h1,h2,h3 {
 }
 </style>
 <body>
-	<h1>Cloudflare Gyazo</h1>
-	2022 (C) <a href="http://mattn.kaoriya.net/">mattn</a>, code is <a href="https://github.com/mattn/cloudflare-gyazo">here</a>
+	<h1>ぬるぽ・ｶﾞｯ</h1>
+	2023 (C) <a href="http://mattn.kaoriya.net/">mattn</a>, code is <a href="https://github.com/mattn/cloudflare-nostr-nullpoga">here</a>
 </body>
 `
 
