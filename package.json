@@ -12,7 +12,6 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
-    "nostr-tools": "^1.10.1",
-    "websocket-polyfill": "^0.0.3"
+    "nostr-tools": "^1.10.1"
   }
 }

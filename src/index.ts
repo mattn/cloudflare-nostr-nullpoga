@@ -1,6 +1,5 @@
 'use strict';
 
-import "websocket-polyfill"
 import {
     nip19,
     getPublicKey,
