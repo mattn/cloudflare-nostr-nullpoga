@@ -8,7 +8,8 @@ import {
 } from 'nostr-tools'
 
 export interface Env {
-    NULLPOGA_TOKEN: string;
+    NULLPOGA_GA_TOKEN: string;
+    NULLPOGA_LOGINBONUS_TOKEN: string;
     NULLPOGA_NSEC: string;
 }
 
@@ -52,19 +53,43 @@ function notAuthenticated(_request: Request, _env: Env) {
     );
 }
 
+function notFound(_request: Request, _env: Env) {
+    return new Response(`Not found`, {
+        status: 404,
+    });
+}
+
 function unsupportedMethod(_request: Request, _env: Env) {
     return new Response(`Unsupported method`, {
         status: 400,
     });
 }
 
-function bearerAuthentication(request: Request, env: Env) {
+function bearerAuthentication(request: Request, secret: string) {
     if (!request.headers.has('authorization')) {
         return false;
     }
     const authorization = request.headers.get('Authorization')!;
     const [scheme, encoded] = authorization.split(' ');
-    return scheme === 'Bearer' && encoded === env.NULLPOGA_TOKEN;
+    return scheme === 'Bearer' && encoded === secret;
+}
+
+function createReply(env: Env, mention: { [name: string]: string }, message: string): object {
+    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+    const sk = decoded.data as string;
+    const pk = getPublicKey(sk);
+    let event = {
+        id: '',
+        kind: 1,
+        pubkey: pk,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['e', mention.id], ['p', mention.pubkey]],
+        content: message,
+        sig: '',
+    }
+    event.id = getEventHash(event)
+    event.sig = signEvent(event, sk)
+    return event
 }
 
 function createEvent(env: Env, message: string): object {
@@ -113,14 +138,26 @@ async function doClock(request: Request, env: Env): Promise<Response> {
 }
 
 async function doGa(request: Request, env: Env): Promise<Response> {
-    if (!bearerAuthentication(request, env)) {
+    if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env);
     }
     const mention: { [name: string]: string } = await request.json();
-    if (!mention['content']?.match(/^(ぬる)+ぽ$/)) {
+    if (!mention.content?.match(/^(ぬる)+ぽ$/)) {
         return new Response('');
     }
-    return new Response(JSON.stringify(createEvent(env, 'ｶﾞｯ'.repeat((mention['content'].length - 1) / 2))), {
+    return new Response(JSON.stringify(createReply(env, mention, 'ｶﾞｯ'.repeat((mention.content.length - 1) / 2))), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    });
+}
+
+async function doLoginbonus(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_LOGINBONUS_TOKEN)) {
+        return notAuthenticated(request, env);
+    }
+    const mention: { [name: string]: string } = await request.json();
+    return new Response(JSON.stringify(createReply(env, mention, 'ありません')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -140,15 +177,24 @@ export default {
         console.log(`${request.method}: ${request.url}`);
 
         if (request.method === 'GET') {
-            if (pathname == '/nullpo')
-                return doNullpo(request, env);
-            else if (pathname == '/clock')
-                return doClock(request, env);
-            else
-                return doPage(request, env);
+            switch (pathname) {
+                case '/nullpo':
+                    return doNullpo(request, env);
+                case '/clock':
+                    return doClock(request, env);
+                case '/':
+                    return doPage(request, env);
+            }
+            return notFound(request, env)
         }
         if (request.method === 'POST') {
-            return doGa(request, env);
+            switch (pathname) {
+                case '/loginbonus':
+                    return doLoginbonus(request, env);
+                case '/':
+                    return doGa(request, env);
+            }
+            return notFound(request, env)
         }
 
         return unsupportedMethod(request, env);
