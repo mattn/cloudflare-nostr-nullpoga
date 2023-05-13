@@ -68,15 +68,7 @@ function bearerAuthentication(request: Request, env: Env) {
     return scheme === 'Bearer' && encoded === env.NULLPOGA_TOKEN;
 }
 
-async function doPage(_request: Request, _env: Env): Promise<Response> {
-    return new Response(page, {
-        headers: {
-            'content-type': 'text/html; charset=UTF-8',
-        },
-    });
-}
-
-async function doNullpo(request: Request, env: Env): Promise<Response> {
+function createEvent(env: Env, message: string): object {
     const decoded = nip19.decode(env.NULLPOGA_NSEC);
     const sk = decoded.data as string;
     const pk = getPublicKey(sk);
@@ -86,13 +78,35 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
-        content: 'ぬるぽ',
+        content: message,
         sig: '',
     }
     event.id = getEventHash(event)
     event.sig = signEvent(event, sk)
-    console.log(event)
-    return new Response(JSON.stringify(event), {
+    return event
+}
+
+async function doPage(_request: Request, _env: Env): Promise<Response> {
+    return new Response(page, {
+        headers: {
+            'content-type': 'text/html; charset=UTF-8',
+        },
+    });
+}
+
+async function doNullpo(request: Request, env: Env): Promise<Response> {
+    return new Response(JSON.stringify(createEvent(env, 'ぬるぽ')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    });
+}
+
+async function doClock(request: Request, env: Env): Promise<Response> {
+    const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000));
+    const hour = now.getHours()
+    const message = 'ぬるぽが' + (hour < 12 ? '午前' : '午後') + (hour % 12) + '時をお伝えします'
+    return new Response(JSON.stringify(createEvent(env, message)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -107,22 +121,7 @@ async function doGa(request: Request, env: Env): Promise<Response> {
     if (!mention['content']?.match(/^(ぬる)+ぽ$/)) {
         return new Response('');
     }
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
-    const sk = decoded.data as string;
-    const pk = getPublicKey(sk);
-    let event = {
-        id: '',
-        kind: 1,
-        pubkey: pk,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [['e', mention.id], ['p', mention.pubkey]],
-        content: 'ｶﾞｯ'.repeat((mention['content'].length - 1) / 2),
-        sig: '',
-    }
-    event.id = getEventHash(event)
-    event.sig = signEvent(event, sk)
-    console.log(event)
-    return new Response(JSON.stringify(event), {
+    return new Response(JSON.stringify(createEvent(env, 'ｶﾞｯ'.repeat((mention['content'].length - 1) / 2))), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -144,6 +143,8 @@ export default {
         if (request.method === 'GET') {
             if (pathname == '/nullpo')
                 return doNullpo(request, env);
+            else if (pathname == '/clock')
+                return doClock(request, env);
             else
                 return doPage(request, env);
         }
