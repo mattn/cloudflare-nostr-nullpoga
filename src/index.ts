@@ -68,7 +68,7 @@ function bearerAuthentication(request: Request, env: Env) {
     return scheme === 'Bearer' && encoded === env.NULLPOGA_TOKEN;
 }
 
-async function doGet(_request: Request, _env: Env): Promise<Response> {
+async function doPage(_request: Request, _env: Env): Promise<Response> {
     return new Response(page, {
         headers: {
             'content-type': 'text/html; charset=UTF-8',
@@ -76,12 +76,35 @@ async function doGet(_request: Request, _env: Env): Promise<Response> {
     });
 }
 
-async function doPost(request: Request, env: Env): Promise<Response> {
+async function doNullpo(request: Request, env: Env): Promise<Response> {
+    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+    const sk = decoded.data as string;
+    const pk = getPublicKey(sk);
+    let event = {
+        id: '',
+        kind: 1,
+        pubkey: pk,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [],
+        content: 'ぬるぽ',
+        sig: '',
+    }
+    event.id = getEventHash(event)
+    event.sig = signEvent(event, sk)
+    console.log(event)
+    return new Response(JSON.stringify(event), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    });
+}
+
+async function doGa(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env)) {
         return notAuthenticated(request, env);
     }
     const mention: { [name: string]: string } = await request.json();
-    if (!mention['content']?.match(/ぬるぽ/)) {
+    if (!mention['content']?.match(/^(ぬる)+ぽ$/)) {
         return new Response('');
     }
     const decoded = nip19.decode(env.NULLPOGA_NSEC);
@@ -93,7 +116,7 @@ async function doPost(request: Request, env: Env): Promise<Response> {
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
         tags: [['e', mention.id], ['p', mention.pubkey]],
-        content: 'ｶﾞｯ',
+        content: 'ｶﾞｯ'.repeat((mention['content'].length - 1) / 2),
         sig: '',
     }
     event.id = getEventHash(event)
@@ -110,7 +133,7 @@ export default {
     async fetch(
         request: Request,
         env: Env): Promise<Response> {
-        const { protocol } = new URL(request.url);
+        const { protocol, pathname } = new URL(request.url);
 
         if ('https:' !== protocol || 'https' !== request.headers.get('x-forwarded-proto')) {
             throw new Error('Please use a HTTPS connection.')
@@ -119,10 +142,13 @@ export default {
         console.log(`${request.method}: ${request.url}`);
 
         if (request.method === 'GET') {
-            return doGet(request, env);
+            if (pathname == '/nullpo')
+                return doNullpo(request, env);
+            else
+                return doPage(request, env);
         }
         if (request.method === 'POST') {
-            return doPost(request, env);
+            return doGa(request, env);
         }
 
         return unsupportedMethod(request, env);
