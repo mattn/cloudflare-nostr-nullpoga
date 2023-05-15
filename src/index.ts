@@ -164,6 +164,36 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
     });
 }
 
+async function doLokuyow(request: Request, env: Env): Promise<Response> {
+    const icons = [
+        "hutu.png",
+        "huhe.png",
+        "nita.png",
+        "maji.png",
+        "bero.png",
+        "basu.png",
+        "kowa.png",
+        "kowa2.png",
+        "nita0.png",
+        "ike2.png",
+        "tiku.png",
+        "tiku2.png",
+        "note13kmrhvkpnqk3tkg4z4x7527aqejqg90vk8hwe38khmd9hn29lcwsr5qxaj.jpg",
+        "note18aqm9p750934wyswmhfrdu93tnexrn6s62ser2fdlgs3xw7pc6csegutl2.jpg",
+        "note1x4sau4fqg7yg5l639x3d9yahhczmhvzgg6sc9adzttc2uqer4faqvx5p7q.jpg",
+        "note14x0c3vwz47ht4vnuvd0wxc5l8az2k09z4hx2hmw4zcgwz26nd9lsrr6f68.jpg",
+        "note10z20nh6k3cawg6d2alqdytqct5rud897l0eplv930zkzpt4k6zqs96lr8q.jpg",
+        "note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg",
+    ]
+    const item = "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
+    const mention: { [name: string]: string } = await request.json();
+    return new Response(JSON.stringify(createReply(env, mention, item)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    });
+}
+
 export default {
     async fetch(
         request: Request,
@@ -191,6 +221,8 @@ export default {
             switch (pathname) {
                 case '/loginbonus':
                     return doLoginbonus(request, env);
+                case '/lokuyow':
+                    return doLokuyow(request, env);
                 case '/':
                     return doGa(request, env);
             }
