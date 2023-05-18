@@ -1,4 +1,4 @@
-'use strict';
+'use strict'
 
 import {
     nip19,
@@ -8,9 +8,9 @@ import {
 } from 'nostr-tools'
 
 export interface Env {
-    NULLPOGA_GA_TOKEN: string;
-    NULLPOGA_LOGINBONUS_TOKEN: string;
-    NULLPOGA_NSEC: string;
+    NULLPOGA_GA_TOKEN: string
+    NULLPOGA_LOGINBONUS_TOKEN: string
+    NULLPOGA_NSEC: string
 }
 
 const page = `
@@ -50,34 +50,34 @@ function notAuthenticated(_request: Request, _env: Env) {
                 'accept-charset': 'utf-8',
             },
         },
-    );
+    )
 }
 
 function notFound(_request: Request, _env: Env) {
     return new Response(`Not found`, {
         status: 404,
-    });
+    })
 }
 
 function unsupportedMethod(_request: Request, _env: Env) {
     return new Response(`Unsupported method`, {
         status: 400,
-    });
+    })
 }
 
 function bearerAuthentication(request: Request, secret: string) {
     if (!request.headers.has('authorization')) {
-        return false;
+        return false
     }
-    const authorization = request.headers.get('Authorization')!;
-    const [scheme, encoded] = authorization.split(' ');
-    return scheme === 'Bearer' && encoded === secret;
+    const authorization = request.headers.get('Authorization')!
+    const [scheme, encoded] = authorization.split(' ')
+    return scheme === 'Bearer' && encoded === secret
 }
 
 function createReply(env: Env, mention: { [name: string]: string }, message: string): object {
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
-    const sk = decoded.data as string;
-    const pk = getPublicKey(sk);
+    const decoded = nip19.decode(env.NULLPOGA_NSEC)
+    const sk = decoded.data as string
+    const pk = getPublicKey(sk)
     let event = {
         id: '',
         kind: 1,
@@ -93,9 +93,9 @@ function createReply(env: Env, mention: { [name: string]: string }, message: str
 }
 
 function createEvent(env: Env, message: string): object {
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
-    const sk = decoded.data as string;
-    const pk = getPublicKey(sk);
+    const decoded = nip19.decode(env.NULLPOGA_NSEC)
+    const sk = decoded.data as string
+    const pk = getPublicKey(sk)
     let event = {
         id: '',
         kind: 1,
@@ -115,7 +115,7 @@ async function doPage(_request: Request, _env: Env): Promise<Response> {
         headers: {
             'content-type': 'text/html; charset=UTF-8',
         },
-    });
+    })
 }
 
 async function doNullpo(request: Request, env: Env): Promise<Response> {
@@ -123,45 +123,47 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
-    });
+    })
 }
 
 async function doClock(request: Request, env: Env): Promise<Response> {
-    const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000));
+    const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000))
     const hour = now.getHours()
     const message = 'ぬるぽが' + (hour < 12 ? '午前' : '午後') + (hour % 12) + '時をお伝えします'
     return new Response(JSON.stringify(createEvent(env, message)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
-    });
+    })
 }
 
 async function doGa(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
-        return notAuthenticated(request, env);
+        return notAuthenticated(request, env)
     }
-    const mention: { [name: string]: string } = await request.json();
-    if (!mention.content?.match(/^(ぬる)+ぽ$/)) {
-        return new Response('');
+    const mention: { [name: string]: string } = await request.json()
+    let content = '' + mention.content
+    if (!content.match(/^ぬ[ぬるぽっー]+$/) || !content.match(/[るぽ]/)) {
+        return new Response('')
     }
-    return new Response(JSON.stringify(createReply(env, mention, 'ｶﾞｯ'.repeat((mention.content.length - 1) / 2))), {
+    content = content.replaceAll('ぬ', 'ｶﾞ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｶﾞｯ').replaceAll('ーぽ', 'ｰｶﾞｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
+    return new Response(JSON.stringify(createReply(env, mention, content)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
-    });
+    })
 }
 
 async function doLoginbonus(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_LOGINBONUS_TOKEN)) {
-        return notAuthenticated(request, env);
+        return notAuthenticated(request, env)
     }
-    const mention: { [name: string]: string } = await request.json();
+    const mention: { [name: string]: string } = await request.json()
     return new Response(JSON.stringify(createReply(env, mention, 'ありません')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
-    });
+    })
 }
 
 async function doLokuyow(request: Request, env: Env): Promise<Response> {
@@ -186,49 +188,49 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
         "note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg",
     ]
     const item = "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
-    const mention: { [name: string]: string } = await request.json();
+    const mention: { [name: string]: string } = await request.json()
     return new Response(JSON.stringify(createReply(env, mention, item)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
-    });
+    })
 }
 
 export default {
     async fetch(
         request: Request,
         env: Env): Promise<Response> {
-        const { protocol, pathname } = new URL(request.url);
+        const { protocol, pathname } = new URL(request.url)
 
         if ('https:' !== protocol || 'https' !== request.headers.get('x-forwarded-proto')) {
             throw new Error('Please use a HTTPS connection.')
         }
 
-        console.log(`${request.method}: ${request.url}`);
+        console.log(`${request.method}: ${request.url}`)
 
         if (request.method === 'GET') {
             switch (pathname) {
                 case '/nullpo':
-                    return doNullpo(request, env);
+                    return doNullpo(request, env)
                 case '/clock':
-                    return doClock(request, env);
+                    return doClock(request, env)
                 case '/':
-                    return doPage(request, env);
+                    return doPage(request, env)
             }
             return notFound(request, env)
         }
         if (request.method === 'POST') {
             switch (pathname) {
                 case '/loginbonus':
-                    return doLoginbonus(request, env);
+                    return doLoginbonus(request, env)
                 case '/lokuyow':
-                    return doLokuyow(request, env);
+                    return doLokuyow(request, env)
                 case '/':
-                    return doGa(request, env);
+                    return doGa(request, env)
             }
             return notFound(request, env)
         }
 
-        return unsupportedMethod(request, env);
+        return unsupportedMethod(request, env)
     },
-};
+}
