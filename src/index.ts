@@ -74,16 +74,21 @@ function bearerAuthentication(request: Request, secret: string) {
     return scheme === 'Bearer' && encoded === secret
 }
 
-function createReply(env: Env, mention: { [name: string]: string }, message: string): object {
+function createReply(env: Env, mention: { [name: string]: string }, message: string, tag: string): object {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
+    let tags = [['e', mention.id], ['p', mention.pubkey]]
+    if (tag != '') {
+        tags.push(['t', tag])
+        message = "#" + tag + "\n" + message
+    }
     let event = {
         id: '',
         kind: 1,
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [['e', mention.id], ['p', mention.pubkey]],
+        tags: tags,
         content: message,
         sig: '',
     }
@@ -137,17 +142,34 @@ async function doClock(request: Request, env: Env): Promise<Response> {
     })
 }
 
-async function doGa(request: Request, env: Env): Promise<Response> {
+async function doNullpoGa(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env)
     }
     const mention: { [name: string]: string } = await request.json()
     let content = '' + mention.content
-    if (!content.match(/^ぬ[ぬるぽっー]+$/) || !content.match(/[るぽ]/)) {
+    if (!content.match(/^ぬ[ぬるぽっー]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
         return new Response('')
     }
     content = content.replaceAll('ぬ', 'ｶﾞ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｶﾞｯ').replaceAll('ーぽ', 'ｰｶﾞｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
-    return new Response(JSON.stringify(createReply(env, mention, content)), {
+    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_VA_TOKEN)) {
+        return notAuthenticated(request, env)
+    }
+    const mention: { [name: string]: string } = await request.json()
+    let content = '' + mention.content
+    if (!content.match(/^つ[つるぽっー]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
+        return new Response('')
+    }
+    content = content.replaceAll('つ', 'ｳﾞｧ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｳﾞｧｯ').replaceAll('ーぽ', 'ｰｳﾞｧｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
+    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -159,7 +181,7 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env)
     }
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, 'ありません')), {
+    return new Response(JSON.stringify(createReply(env, mention, 'ありません', '')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -189,7 +211,7 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
     ]
     const item = "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, item)), {
+    return new Response(JSON.stringify(createReply(env, mention, item, 'ロクヨウ画像')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -225,8 +247,10 @@ export default {
                     return doLoginbonus(request, env)
                 case '/lokuyow':
                     return doLokuyow(request, env)
+                case '/tsurupo':
+                    return doTsurupoVa(request, env)
                 case '/':
-                    return doGa(request, env)
+                    return doNullpoGa(request, env)
             }
             return notFound(request, env)
         }
