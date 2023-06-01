@@ -148,7 +148,7 @@ async function doNullpoGa(request: Request, env: Env): Promise<Response> {
     }
     const mention: { [name: string]: string } = await request.json()
     let content = '' + mention.content
-    if (!content.match(/^ぬ[ぬるぽっー]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
+    if (!content.match(/^ぬ[ぬるぽっー\n]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
         return new Response('')
     }
     content = content.replaceAll('ぬ', 'ｶﾞ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｶﾞｯ').replaceAll('ーぽ', 'ｰｶﾞｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
@@ -165,7 +165,7 @@ async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
     }
     const mention: { [name: string]: string } = await request.json()
     let content = '' + mention.content
-    if (!content.match(/^つ[つるぽっー]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
+    if (!content.match(/^つ[つるぽっー\n]+$/) || !content.match(/る/) || !content.match(/ぽ/)) {
         return new Response('')
     }
     content = content.replaceAll('つ', 'ｳﾞｧ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｳﾞｧｯ').replaceAll('ーぽ', 'ｰｳﾞｧｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
@@ -182,6 +182,15 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
     }
     const mention: { [name: string]: string } = await request.json()
     return new Response(JSON.stringify(createReply(env, mention, 'ありません', '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doNagashite(_request: Request, env: Env): Promise<Response> {
+    const wave = '🌊🌊🌊🌊🌊🌊🌊🌊\n'.repeat(12)
+    return new Response(JSON.stringify(createEvent(env, wave)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -249,6 +258,8 @@ export default {
                     return doLokuyow(request, env)
                 case '/tsurupo':
                     return doTsurupoVa(request, env)
+                case '/nagashite':
+                    return doNagashite(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
