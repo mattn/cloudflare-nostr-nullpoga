@@ -7,8 +7,10 @@ import {
     signEvent
 } from 'nostr-tools'
 
+const suddendeath = require('suddendeath')
 export interface Env {
     NULLPOGA_GA_TOKEN: string
+    NULLPOGA_VA_TOKEN: string
     NULLPOGA_LOGINBONUS_TOKEN: string
     NULLPOGA_NSEC: string
 }
@@ -124,6 +126,9 @@ async function doPage(_request: Request, _env: Env): Promise<Response> {
 }
 
 async function doNullpo(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
+        return notAuthenticated(request, env)
+    }
     return new Response(JSON.stringify(createEvent(env, 'ぬるぽ')), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
@@ -175,6 +180,44 @@ async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
         },
     })
 }
+
+async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    let content = '' + mention.content
+    if (!content.match(/そうはならんやろ/)) {
+        return new Response('')
+    }
+    return new Response(JSON.stringify(createReply(env, mention, 'なっとるやろがい!!', '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡"
+//const pai = "東南西北白発中一二三四五六七八九１２３４５６７８９①②③④⑤⑥⑦⑧⑨"
+
+async function doMahjongPai(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    const content = Array.from(pai.repeat(4))
+        .map(v => ({ v, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort).map(({ v }) => v)
+        .slice(0, 14).sort().join('')
+    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+};
+
+async function doSuddendeanth(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    return new Response(JSON.stringify(createReply(env, mention, suddendeath(mention.content, true), '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+};
 
 async function doLoginbonus(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_LOGINBONUS_TOKEN)) {
@@ -260,6 +303,12 @@ export default {
                     return doTsurupoVa(request, env)
                 case '/nagashite':
                     return doNagashite(request, env)
+                case '/nattoruyarogai':
+                    return doNattoruyarogai(request, env)
+                case '/suddendeath':
+                    return doSuddendeanth(request, env)
+                case '/mahjongpai':
+                    return doMahjongPai(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
