@@ -147,6 +147,15 @@ async function doClock(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doSuitou(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    return new Response(JSON.stringify(createReply(env, mention, 'えらい！', '')), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 async function doNullpoGa(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env)
@@ -309,6 +318,8 @@ export default {
                     return doSuddendeanth(request, env)
                 case '/mahjongpai':
                     return doMahjongPai(request, env)
+                case '/suitou':
+                    return doSuitou(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
