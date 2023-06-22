@@ -76,15 +76,11 @@ function bearerAuthentication(request: Request, secret: string) {
     return scheme === 'Bearer' && encoded === secret
 }
 
-function createReply(env: Env, mention: { [name: string]: string }, message: string, tag: string): object {
+function createReplyWithTags(env: Env, mention: { [name: string]: string }, message: string, tags: string[][]): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
-    let tags = [['e', mention.id], ['p', mention.pubkey]]
-    if (tag != '') {
-        tags.push(['t', tag])
-        message = "#" + tag + "\n" + message
-    }
+    tags.push(['e', mention.id], ['p', mention.pubkey])
     let event = {
         id: '',
         kind: 1,
@@ -99,7 +95,7 @@ function createReply(env: Env, mention: { [name: string]: string }, message: str
     return event
 }
 
-function createEvent(env: Env, message: string): object {
+function createEventWithTags(env: Env, message: string, tags: string[][]): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
@@ -108,7 +104,7 @@ function createEvent(env: Env, message: string): object {
         kind: 1,
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [],
+        tags: tags,
         content: message,
         sig: '',
     }
@@ -129,18 +125,18 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env)
     }
-    return new Response(JSON.stringify(createEvent(env, 'ぬるぽ')), {
+    return new Response(JSON.stringify(createEventWithTags(env, 'ぬるぽ', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
     })
 }
 
-async function doClock(request: Request, env: Env): Promise<Response> {
+async function doClock(_request: Request, env: Env): Promise<Response> {
     const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000))
     const hour = now.getHours()
     const message = 'ぬるぽが' + (hour < 12 ? '午前' : '午後') + (hour % 12) + '時をお伝えします'
-    return new Response(JSON.stringify(createEvent(env, message)), {
+    return new Response(JSON.stringify(createEventWithTags(env, message, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -149,7 +145,35 @@ async function doClock(request: Request, env: Env): Promise<Response> {
 
 async function doSuitou(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, 'えらい！', '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, 'えらい！', [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doIgyo(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    let tags = [['emoji', 'igyo', 'https://i.gyazo.com/6ca054b84392b4b1bd0038d305f72b64.png']]
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, ':igyo:', tags)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doOnlyYou(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: string } = await request.json()
+    let content = '' + mention.content
+    content = content
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てる[?？!！.]*$/s, "$1てないのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でる[?？!！.]*$/s, "$1でないのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)いる[?？!！.]*$/s, "$1いないのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てない[?？!！.]*$/s, "$1てるのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, "$1でるのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, "$1てんのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, "$1でんのお前だけ")
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -166,7 +190,7 @@ async function doNullpoGa(request: Request, env: Env): Promise<Response> {
         return new Response('')
     }
     content = content.replaceAll('ぬ', 'ｶﾞ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｶﾞｯ').replaceAll('ーぽ', 'ｰｶﾞｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
-    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -183,7 +207,7 @@ async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
         return new Response('')
     }
     content = content.replaceAll('つ', 'ｳﾞｧ').replaceAll('る', 'ｯ').replaceAll('ぽっ', 'ｳﾞｧｯ').replaceAll('ーぽ', 'ｰｳﾞｧｯ').replaceAll('ー', 'ｰ').replaceAll('っ', 'ｯ').replaceAll(/ｯ+/g, 'ｯ').replaceAll('ぽ', '')
-    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -196,7 +220,7 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     if (!content.match(/そうはならんやろ/)) {
         return new Response('')
     }
-    return new Response(JSON.stringify(createReply(env, mention, 'なっとるやろがい!!', '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, 'なっとるやろがい!!', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -212,7 +236,7 @@ async function doMahjongPai(request: Request, env: Env): Promise<Response> {
         .map(v => ({ v, sort: Math.random() }))
         .sort((a, b) => a.sort - b.sort).map(({ v }) => v)
         .slice(0, 14).sort().join('')
-    return new Response(JSON.stringify(createReply(env, mention, content, '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -221,7 +245,7 @@ async function doMahjongPai(request: Request, env: Env): Promise<Response> {
 
 async function doSuddendeanth(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, suddendeath(mention.content, true), '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, suddendeath(mention.content, true), [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -233,16 +257,21 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env)
     }
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, 'ありません', '')), {
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, 'ありません', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
     })
 }
 
-async function doNagashite(_request: Request, env: Env): Promise<Response> {
-    const wave = '🌊🌊🌊🌊🌊🌊🌊🌊\n'.repeat(12)
-    return new Response(JSON.stringify(createEvent(env, wave)), {
+async function doNagashite(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    const m = mention.content.match(/流して(\s+.*)$/)
+    const wave = m ? m[1].trim() : '🌊🌊🌊🌊🌊🌊🌊🌊'
+    let tags = []
+    for (const tag of mention.tags)
+        if (tag[0] === 'emoji') tags.push(tag)
+    return new Response(JSON.stringify(createEventWithTags(env, (wave + '\n').repeat(12), tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -270,9 +299,10 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
         "note10z20nh6k3cawg6d2alqdytqct5rud897l0eplv930zkzpt4k6zqs96lr8q.jpg",
         "note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg",
     ]
-    const item = "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
+    const item = "#ロクヨウ画像\n" + "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
     const mention: { [name: string]: string } = await request.json()
-    return new Response(JSON.stringify(createReply(env, mention, item, 'ロクヨウ画像')), {
+    const tags = [['t', 'ロクヨウ画像']]
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, item, tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -318,8 +348,12 @@ export default {
                     return doSuddendeanth(request, env)
                 case '/mahjongpai':
                     return doMahjongPai(request, env)
+                case '/onlyyou':
+                    return doOnlyYou(request, env)
                 case '/suitou':
                     return doSuitou(request, env)
+                case '/igyo':
+                    return doIgyo(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
