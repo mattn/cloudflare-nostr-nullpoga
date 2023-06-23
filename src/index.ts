@@ -162,6 +162,15 @@ async function doIgyo(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doLetterpack(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, 'https://i.gyazo.com/d3d5ab0007253e060482e52e5734d402.png', [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
@@ -354,6 +363,8 @@ export default {
                     return doSuitou(request, env)
                 case '/igyo':
                     return doIgyo(request, env)
+                case '/letterpack':
+                    return doLetterpack(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
