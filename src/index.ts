@@ -171,6 +171,47 @@ async function doLetterpack(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doHi(request: Request, env: Env): Promise<Response> {
+    return new Response(JSON.stringify(createEventWithTags(env, '＼ﾊｰｲ!🙌／', [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+export interface bookmark {
+    pattern: RegExp;
+    site: string;
+}
+
+const bookmarks: bookmark[] = [
+    { pattern: /^おいくらsats$|^おいくらサッツ$/i, site: "https://lokuyow.github.io/sats-rate/" },
+    { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: "https://nostr-bookmark-viewer4.vercel.app/" },
+    { pattern: /^nostrends$|トレンド/i, site: "https://nostrends.vercel.app/" },
+    { pattern: /^nostrbuzzs$|buzz/i, site: "https://nostrbuzzs.deno.dev/" },
+    { pattern: /^nosli$|togetterみたいな/i, site: "https://nosli.vercel.app/" },
+    { pattern: /^のぞき窓$|^のぞきまど$/i, site: "https://relay-jp.nostr.wirednet.jp/index.html" },
+    { pattern: /^検索ポータル$/i, site: "https://nostr.hoku.in/" },
+    { pattern: /^nostrflu$|フォローリスト.*再送信/i, site: "https://heguro.github.io/nostr-following-list-util/" },
+    { pattern: /^nostter$|^のすったー$/i, site: "https://nostter.vercel.app/" },
+    { pattern: /^rabbit$/i, site: "https://syusui-s.github.io/rabbit/" },
+]
+
+async function doWhere(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    let content = '' + mention.content.replace(/どこ[?？]*$/, '').trim()
+    for (const b of bookmarks) {
+        if (content.match(b.pattern)) {
+            return new Response(JSON.stringify(createReplyWithTags(env, mention, b.site, [])), {
+                headers: {
+                    'content-type': 'application/json; charset=UTF-8',
+                },
+            })
+        }
+    }
+    return new Response('')
+}
+
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
@@ -318,6 +359,50 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
     })
 }
 
+function levenshtein(a: string, b: string): number {
+    const an = a ? a.length : 0;
+    const bn = b ? b.length : 0;
+    if (an === 0) return bn;
+    if (bn === 0) return an;
+    const matrix = new Array<number[]>(bn + 1);
+    for (let i = 0; i <= bn; ++i) {
+        let row = matrix[i] = new Array<number>(an + 1);
+        row[0] = i;
+    }
+    const firstRow = matrix[0];
+    for (let j = 1; j <= an; ++j) {
+        firstRow[j] = j;
+    }
+    for (let i = 1; i <= bn; ++i) {
+        for (let j = 1; j <= an; ++j) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1],
+                    matrix[i][j - 1],
+                    matrix[i - 1][j]
+                ) + 1;
+            }
+        }
+    }
+    return matrix[bn][an];
+}
+
+async function doDistance(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    let content = '' + mention.content;
+    let m = content.match(/^"(\S+)"と"(\S+)"の文字列距離$/)
+    if (!m) m = content.match(/^「(\S+)」と「(\S+)」の文字列距離$/)
+    if (!m) m = content.match(/^(\S+)\s*と\s*(\S+)\s*の文字列距離$/)
+    if (!m) return new Response('')
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, `${levenshtein(m[1], m[2])}です`, [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -365,6 +450,12 @@ export default {
                     return doIgyo(request, env)
                 case '/letterpack':
                     return doLetterpack(request, env)
+                case '/hi':
+                    return doHi(request, env)
+                case '/where':
+                    return doWhere(request, env)
+                case '/distance':
+                    return doDistance(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
