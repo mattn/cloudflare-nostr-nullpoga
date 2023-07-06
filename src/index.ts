@@ -76,6 +76,24 @@ function bearerAuthentication(request: Request, secret: string) {
     return scheme === 'Bearer' && encoded === secret
 }
 
+function createLike(env: Env, mention: { [name: string]: any }, message: string): { [name: string]: any } {
+    const decoded = nip19.decode(env.NULLPOGA_NSEC)
+    const sk = decoded.data as string
+    const pk = getPublicKey(sk)
+    let event = {
+        id: '',
+        kind: 7,
+        pubkey: pk,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['e', mention.id]],
+        content: '❤',
+        sig: '',
+    }
+    event.id = getEventHash(event)
+    event.sig = signEvent(event, sk)
+    return event
+}
+
 function createReplyWithTags(env: Env, mention: { [name: string]: any }, message: string, tags: string[][]): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
@@ -95,7 +113,7 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     return event
 }
 
-function createEventWithTags(env: Env, message: string, tags: string[][]): { [name: string]: any } {
+function createNoteWithTags(env: Env, message: string, tags: string[][]): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
@@ -125,7 +143,7 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env)
     }
-    return new Response(JSON.stringify(createEventWithTags(env, 'ぬるぽ', [])), {
+    return new Response(JSON.stringify(createNoteWithTags(env, 'ぬるぽ', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -136,7 +154,7 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
     const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000))
     const hour = now.getHours()
     const message = 'ぬるぽが' + (hour < 12 ? '午前' : '午後') + (hour % 12) + '時をお伝えします'
-    return new Response(JSON.stringify(createEventWithTags(env, message, [])), {
+    return new Response(JSON.stringify(createNoteWithTags(env, message, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -172,7 +190,7 @@ async function doLetterpack(request: Request, env: Env): Promise<Response> {
 }
 
 async function doHi(request: Request, env: Env): Promise<Response> {
-    return new Response(JSON.stringify(createEventWithTags(env, '＼ﾊｰｲ!🙌／', [])), {
+    return new Response(JSON.stringify(createNoteWithTags(env, '＼ﾊｰｲ!🙌／', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -321,7 +339,7 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/流して(\s+.*)$/)
     const wave = m ? m[1].trim() : '🌊🌊🌊🌊🌊🌊🌊🌊'
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    return new Response(JSON.stringify(createEventWithTags(env, (wave + '\n').repeat(12), tags)), {
+    return new Response(JSON.stringify(createNoteWithTags(env, (wave + '\n').repeat(12), tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -403,6 +421,15 @@ async function doDistance(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doLike(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createLike(env, mention)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -456,6 +483,8 @@ export default {
                     return doWhere(request, env)
                 case '/distance':
                     return doDistance(request, env)
+                case '/like':
+                    return doLike(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
