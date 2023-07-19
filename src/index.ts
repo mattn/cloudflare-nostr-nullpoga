@@ -8,6 +8,8 @@ import {
 } from 'nostr-tools'
 
 const suddendeath = require('suddendeath')
+var eaw = require('eastasianwidth')
+
 export interface Env {
     NULLPOGA_GA_TOKEN: string
     NULLPOGA_VA_TOKEN: string
@@ -204,15 +206,17 @@ export interface bookmark {
 
 const bookmarks: bookmark[] = [
     { pattern: /^おいくらsats$|^おいくらサッツ$/i, site: "https://lokuyow.github.io/sats-rate/" },
-    { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: "https://nostr-bookmark-viewer4.vercel.app/" },
+    { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: "https://nostr-bookmark-viewer3.vercel.app/" },
     { pattern: /^nostrends$|トレンド/i, site: "https://nostrends.vercel.app/" },
     { pattern: /^nostrbuzzs$|buzz/i, site: "https://nostrbuzzs.deno.dev/" },
     { pattern: /^nosli$|togetterみたいな/i, site: "https://nosli.vercel.app/" },
     { pattern: /^のぞき窓$|^のぞきまど$/i, site: "https://relay-jp.nostr.wirednet.jp/index.html" },
     { pattern: /^検索ポータル$/i, site: "https://nostr.hoku.in/" },
+    { pattern: /^検索$/i, site: "https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)" },
     { pattern: /^nostrflu$|フォローリスト.*再送信/i, site: "https://heguro.github.io/nostr-following-list-util/" },
     { pattern: /^nostter$|^のすったー$/i, site: "https://nostter.vercel.app/" },
     { pattern: /^rabbit$/i, site: "https://syusui-s.github.io/rabbit/" },
+    { pattern: /^絵文字パック$|絵文字/i, site: "https://emojis-iota.vercel.app/" },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -430,6 +434,38 @@ async function doLike(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doNya(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    let content = [' A＿＿A', '|・ㅅ・ |', '|っ　ｃ|', ''].join('\n')
+    let arr = mention.content.replace(/にゃ！$/, '').replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜').split(/(:[^:]+:)/g).map((x: string) => {
+        if (/^(:[^:]+:)$/.test(x)) return [x]
+        return [...x]
+    }).flat()
+    for (const c of arr) {
+        if (c == '\n' || c == '\t' || c == ' ') continue
+        const isW = ['F', 'W', 'A', 'N'].includes(eaw.eastAsianWidth(c))
+        content += '|　' + (isW ? c : c + ' ') + '　|\n'
+    }
+    content += [' U￣￣U'].join("\n")
+    const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    const content = mention.content.match(/開閉/) ? 'https://pbs.twimg.com/media/DGqDBg3VwAA1n9f.jpg' :
+        !mention.content.match(/閉園/) ? 'https://cdn-ak.f.st-hatena.com/images/fotolife/z/zizekian/20170803/20170803152849.jpg' : 'https://cdn-ak.f.st-hatena.com/images/fotolife/z/zizekian/20170803/20170803152904.jpg'
+    const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
 export default {
     async fetch(
         request: Request,
@@ -485,6 +521,10 @@ export default {
                     return doDistance(request, env)
                 case '/like':
                     return doLike(request, env)
+                case '/nya':
+                    return doNya(request, env)
+                case '/ochinchinland':
+                    return doOchinchinLand(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }

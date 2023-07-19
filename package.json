@@ -13,6 +13,7 @@
     "deploy": "wrangler publish"
   },
   "dependencies": {
+    "eastasianwidth": "^0.2.0",
     "nostr-tools": "^1.10.1",
     "suddendeath": "^0.2.0"
   }
