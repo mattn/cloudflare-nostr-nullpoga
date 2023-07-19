@@ -191,6 +191,15 @@ async function doLetterpack(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doUltrasoul(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, 'ｳﾙﾄﾗｿｩ!', [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 async function doHi(request: Request, env: Env): Promise<Response> {
     return new Response(JSON.stringify(createNoteWithTags(env, '＼ﾊｰｲ!🙌／', [])), {
         headers: {
@@ -437,9 +446,9 @@ async function doLike(request: Request, env: Env): Promise<Response> {
 async function doNya(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     let content = [' A＿＿A', '|・ㅅ・ |', '|っ　ｃ|', ''].join('\n')
-    let arr = mention.content.replace(/にゃ！$/, '').replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜').split(/(:[^:]+:)/g).map((x: string) => {
+    let arr = mention.content.replace(/にゃ！$/, '').split(/(:[^:]+:)/g).map((x: string) => {
         if (/^(:[^:]+:)$/.test(x)) return [x]
-        return [...x]
+        return [...x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜')]
     }).flat()
     for (const c of arr) {
         if (c == '\n' || c == '\t' || c == ' ') continue
@@ -457,9 +466,22 @@ async function doNya(request: Request, env: Env): Promise<Response> {
 
 async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
-    const content = mention.content.match(/開閉/) ? 'https://pbs.twimg.com/media/DGqDBg3VwAA1n9f.jpg' :
-        !mention.content.match(/閉園/) ? 'https://cdn-ak.f.st-hatena.com/images/fotolife/z/zizekian/20170803/20170803152849.jpg' : 'https://cdn-ak.f.st-hatena.com/images/fotolife/z/zizekian/20170803/20170803152904.jpg'
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
+
+    let content = ''
+    if (mention.content.match(/[?？]$/)) {
+        const status = (await env.ochinchinland.get('status')) as string
+        content = status == "open" ? "開園中" : "閉園中"
+    } else if (mention.content.match(/開閉/)) {
+        await env.ochinchinland.put('status', 'close')
+        content = 'https://cdn.nostr.build/i/f6103329b41603af2b36ec0131d27dd39d28ca1ddeb0041cd2839e5954563a92.jpg'
+    } else if (mention.content.match(/閉園/)) {
+        await env.ochinchinland.put('status', 'close')
+        content = 'https://cdn.nostr.build/i/4a7963a07bdac34b1408b871548d3a06527af359ad5a9f080d3c2031f6e582fe.jpg'
+    } else {
+        await env.ochinchinland.put('status', 'open')
+        content = 'https://cdn.nostr.build/i/662dab3ac355c5b2e8682f10eef4102342599bf8f77b52e9c7a7a52153398bfd.jpg'
+    }
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
@@ -513,6 +535,8 @@ export default {
                     return doIgyo(request, env)
                 case '/letterpack':
                     return doLetterpack(request, env)
+                case '/ultrasoul':
+                    return doUltrasoul(request, env)
                 case '/hi':
                     return doHi(request, env)
                 case '/where':
