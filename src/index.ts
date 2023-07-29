@@ -163,6 +163,16 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doOchinchinLandStatus(_request: Request, env: Env): Promise<Response> {
+    const status = (await env.ochinchinland.get('status')) as string
+    return new Response(JSON.stringify({ "status": status }), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+            'access-control-allow-origin': '*',
+        },
+    })
+}
+
 async function doSuitou(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     return new Response(JSON.stringify(createReplyWithTags(env, mention, 'えらい！', [])), {
@@ -201,7 +211,8 @@ async function doUltrasoul(request: Request, env: Env): Promise<Response> {
 }
 
 async function doHi(request: Request, env: Env): Promise<Response> {
-    return new Response(JSON.stringify(createNoteWithTags(env, '＼ﾊｰｲ!🙌／', [])), {
+    const content = Math.floor(Math.random() * 1000) === 0 ? 'なんやねん' : '＼ﾊｰｲ!🙌／'
+    return new Response(JSON.stringify(createNoteWithTags(env, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -214,18 +225,21 @@ export interface bookmark {
 }
 
 const bookmarks: bookmark[] = [
-    { pattern: /^おいくらsats$|^おいくらサッツ$/i, site: "https://lokuyow.github.io/sats-rate/" },
-    { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: "https://nostr-bookmark-viewer3.vercel.app/" },
-    { pattern: /^nostrends$|トレンド/i, site: "https://nostrends.vercel.app/" },
-    { pattern: /^nostrbuzzs$|buzz/i, site: "https://nostrbuzzs.deno.dev/" },
-    { pattern: /^nosli$|togetterみたいな/i, site: "https://nosli.vercel.app/" },
-    { pattern: /^のぞき窓$|^のぞきまど$/i, site: "https://relay-jp.nostr.wirednet.jp/index.html" },
-    { pattern: /^検索ポータル$/i, site: "https://nostr.hoku.in/" },
-    { pattern: /^検索$/i, site: "https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)" },
-    { pattern: /^nostrflu$|フォローリスト.*再送信/i, site: "https://heguro.github.io/nostr-following-list-util/" },
-    { pattern: /^nostter$|^のすったー$/i, site: "https://nostter.vercel.app/" },
-    { pattern: /^rabbit$/i, site: "https://syusui-s.github.io/rabbit/" },
-    { pattern: /^絵文字パック$|絵文字/i, site: "https://emojis-iota.vercel.app/" },
+    { pattern: /^おいくらsats$|^おいくらサッツ$/i, site: 'https://lokuyow.github.io/sats-rate/' },
+    { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: 'https://nostr-bookmark-viewer3.vercel.app/' },
+    { pattern: /^nostrends$|トレンド/i, site: 'https://nostrends.vercel.app/' },
+    { pattern: /^nostrbuzzs$|buzz/i, site: 'https://nostrbuzzs.deno.dev/' },
+    { pattern: /^nosli$|togetterみたいな/i, site: 'https://nosli.vercel.app/' },
+    { pattern: /^のぞき窓$|^のぞきまど$/i, site: 'https://relay-jp.nostr.wirednet.jp/index.html' },
+    { pattern: /^検索ポータル$/i, site: 'https://nostr.hoku.in/' },
+    { pattern: /^検索$/i, site: 'https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)' },
+    { pattern: /^nostrflu$|フォローリスト.*再送信/i, site: 'https://heguro.github.io/nostr-following-list-util/' },
+    { pattern: /^nostter$|^のすったー$/i, site: 'https://nostter.vercel.app/' },
+    { pattern: /^rabbit$/i, site: 'https://syusui-s.github.io/rabbit/' },
+    { pattern: /^絵文字パック$|絵文字/i, site: 'https://emojis-iota.vercel.app/' },
+    { pattern: /^イベントチェッカー$|チェッカー/i, site: 'https://koteitan.github.io/nostr-post-checker/' },
+    { pattern: /^イベント削除$|削除/i, site: 'https://nostr-delete.vercel.app/' },
+    { pattern: /^流速|野洲田川定点観測所$/i, site: 'https://nostr-hotter-site.vercel.app/' },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -248,13 +262,13 @@ async function doOnlyYou(request: Request, env: Env): Promise<Response> {
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
     let content = '' + mention.content
     content = content
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)てる[?？!！.]*$/s, "$1てないのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)でる[?？!！.]*$/s, "$1でないのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)いる[?？!！.]*$/s, "$1いないのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)てない[?？!！.]*$/s, "$1てるのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, "$1でるのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, "$1てんのお前だけ")
-        .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, "$1でんのお前だけ")
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てる[?？!！.]*$/s, '$1てないのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でる[?？!！.]*$/s, '$1でないのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)いる[?？!！.]*$/s, '$1いないのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てない[?？!！.]*$/s, '$1てるのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, '$1でるのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, '$1てんのお前だけ')
+        .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, '$1でんのお前だけ')
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
@@ -309,8 +323,8 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     })
 }
 
-const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡"
-//const pai = "東南西北白発中一二三四五六七八九１２３４５６７８９①②③④⑤⑥⑦⑧⑨"
+const pai = '🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡'
+//const pai = '東南西北白発中一二三四五六七八九１２３４５６７８９①②③④⑤⑥⑦⑧⑨'
 
 async function doMahjongPai(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
@@ -361,26 +375,26 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
 
 async function doLokuyow(request: Request, env: Env): Promise<Response> {
     const icons = [
-        "hutu.png",
-        "huhe.png",
-        "nita.png",
-        "maji.png",
-        "bero.png",
-        "basu.png",
-        "kowa.png",
-        "kowa2.png",
-        "nita0.png",
-        "ike2.png",
-        "tiku.png",
-        "tiku2.png",
-        "note13kmrhvkpnqk3tkg4z4x7527aqejqg90vk8hwe38khmd9hn29lcwsr5qxaj.jpg",
-        "note18aqm9p750934wyswmhfrdu93tnexrn6s62ser2fdlgs3xw7pc6csegutl2.jpg",
-        "note1x4sau4fqg7yg5l639x3d9yahhczmhvzgg6sc9adzttc2uqer4faqvx5p7q.jpg",
-        "note14x0c3vwz47ht4vnuvd0wxc5l8az2k09z4hx2hmw4zcgwz26nd9lsrr6f68.jpg",
-        "note10z20nh6k3cawg6d2alqdytqct5rud897l0eplv930zkzpt4k6zqs96lr8q.jpg",
-        "note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg",
+        'hutu.png',
+        'huhe.png',
+        'nita.png',
+        'maji.png',
+        'bero.png',
+        'basu.png',
+        'kowa.png',
+        'kowa2.png',
+        'nita0.png',
+        'ike2.png',
+        'tiku.png',
+        'tiku2.png',
+        'note13kmrhvkpnqk3tkg4z4x7527aqejqg90vk8hwe38khmd9hn29lcwsr5qxaj.jpg',
+        'note18aqm9p750934wyswmhfrdu93tnexrn6s62ser2fdlgs3xw7pc6csegutl2.jpg',
+        'note1x4sau4fqg7yg5l639x3d9yahhczmhvzgg6sc9adzttc2uqer4faqvx5p7q.jpg',
+        'note14x0c3vwz47ht4vnuvd0wxc5l8az2k09z4hx2hmw4zcgwz26nd9lsrr6f68.jpg',
+        'note10z20nh6k3cawg6d2alqdytqct5rud897l0eplv930zkzpt4k6zqs96lr8q.jpg',
+        'note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg',
     ]
-    const item = "#ロクヨウ画像\n" + "https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/" + icons[Math.floor(Math.random() * icons.length)]
+    const item = '#ロクヨウ画像\n' + 'https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/' + icons[Math.floor(Math.random() * icons.length)]
     const mention: { [name: string]: any } = await request.json()
     const tags = [['t', 'ロクヨウ画像']]
     return new Response(JSON.stringify(createReplyWithTags(env, mention, item, tags)), {
@@ -443,6 +457,14 @@ async function doLike(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doPe(request: Request, env: Env): Promise<Response> {
+    return new Response(JSON.stringify(createNoteWithTags(env, 'ぺぇ〜', [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 async function doNya(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     let content = [' A＿＿A', '|・ㅅ・ |', '|っ　ｃ|', ''].join('\n')
@@ -451,11 +473,11 @@ async function doNya(request: Request, env: Env): Promise<Response> {
         return [...x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜')]
     }).flat()
     for (const c of arr) {
-        if (c == '\n' || c == '\t' || c == ' ') continue
+        if (c === '\n' || c === '\t' || c === ' ') continue
         const isW = ['F', 'W', 'A', 'N'].includes(eaw.eastAsianWidth(c))
         content += '|　' + (isW ? c : c + ' ') + '　|\n'
     }
-    content += [' U￣￣U'].join("\n")
+    content += [' U￣￣U'].join('\n')
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
         headers: {
@@ -471,16 +493,18 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
     let content = ''
     if (mention.content.match(/[?？]$/)) {
         const status = (await env.ochinchinland.get('status')) as string
-        content = status == "open" ? "開園中" : "閉園中"
-    } else if (mention.content.match(/開閉/)) {
+        content = status === 'open' ? '開園中' : '閉園中'
+    } else if (mention.content.match(/開閉[!！]?$/)) {
         await env.ochinchinland.put('status', 'close')
         content = 'https://cdn.nostr.build/i/f6103329b41603af2b36ec0131d27dd39d28ca1ddeb0041cd2839e5954563a92.jpg'
-    } else if (mention.content.match(/閉園/)) {
+    } else if (mention.content.match(/閉園[!！]?$/)) {
         await env.ochinchinland.put('status', 'close')
         content = 'https://cdn.nostr.build/i/4a7963a07bdac34b1408b871548d3a06527af359ad5a9f080d3c2031f6e582fe.jpg'
-    } else {
+    } else if (mention.content.match(/開園[!！]?$/)) {
         await env.ochinchinland.put('status', 'open')
         content = 'https://cdn.nostr.build/i/662dab3ac355c5b2e8682f10eef4102342599bf8f77b52e9c7a7a52153398bfd.jpg'
+    } else {
+        return new Response('')
     }
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
         headers: {
@@ -488,6 +512,31 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
         },
     })
 }
+
+async function doWakaru(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
+    const content = mention.content.match(/^[わ分]かる[!！]?$/) ?
+        'https://cdn.nostr.build/i/f795a1ba2802c5b397cb538d0068da2deb6e7510d8cfff877e5561a15d55199b.jpg' :
+        'https://cdn.nostr.build/i/fd99d078ba96f85b5e3f754e1aeef5f42dbf3312b5a345c5f3ea6405ce2980a7.jpg'
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doHakatano(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
+    const content = mention.content.match(/裸|はっだっか/) ? 'しろ' : 'しお'
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -504,6 +553,8 @@ export default {
             switch (pathname) {
                 case '/nullpo':
                     return doNullpo(request, env)
+                case '/ochinchinland':
+                    return doOchinchinLandStatus(request, env)
                 case '/clock':
                     return doClock(request, env)
                 case '/':
@@ -545,10 +596,16 @@ export default {
                     return doDistance(request, env)
                 case '/like':
                     return doLike(request, env)
+                case '/pe':
+                    return doPe(request, env)
                 case '/nya':
                     return doNya(request, env)
                 case '/ochinchinland':
                     return doOchinchinLand(request, env)
+                case '/wakaru':
+                    return doWakaru(request, env)
+                case '/hakatano':
+                    return doHakatano(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
