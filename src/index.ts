@@ -494,13 +494,13 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
     if (mention.content.match(/[?？]$/)) {
         const status = (await env.ochinchinland.get('status')) as string
         content = status === 'open' ? '開園中' : '閉園中'
-    } else if (mention.content.match(/開閉[!！]?$/)) {
+    } else if (mention.content.match(/開閉[!！]*$/)) {
         await env.ochinchinland.put('status', 'close')
         content = 'https://cdn.nostr.build/i/f6103329b41603af2b36ec0131d27dd39d28ca1ddeb0041cd2839e5954563a92.jpg'
-    } else if (mention.content.match(/閉園[!！]?$/)) {
+    } else if (mention.content.match(/閉園[!！]*$/)) {
         await env.ochinchinland.put('status', 'close')
         content = 'https://cdn.nostr.build/i/4a7963a07bdac34b1408b871548d3a06527af359ad5a9f080d3c2031f6e582fe.jpg'
-    } else if (mention.content.match(/開園[!！]?$/)) {
+    } else if (mention.content.match(/開園[!！]*$/)) {
         await env.ochinchinland.put('status', 'open')
         content = 'https://cdn.nostr.build/i/662dab3ac355c5b2e8682f10eef4102342599bf8f77b52e9c7a7a52153398bfd.jpg'
     } else {
@@ -516,7 +516,7 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
 async function doWakaru(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    const content = mention.content.match(/^[わ分]かる[!！]?$/) ?
+    const content = mention.content.match(/^[わ分]かる[!！]*$/) ?
         'https://cdn.nostr.build/i/f795a1ba2802c5b397cb538d0068da2deb6e7510d8cfff877e5561a15d55199b.jpg' :
         'https://cdn.nostr.build/i/fd99d078ba96f85b5e3f754e1aeef5f42dbf3312b5a345c5f3ea6405ce2980a7.jpg'
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
