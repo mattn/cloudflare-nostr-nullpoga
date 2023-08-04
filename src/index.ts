@@ -229,7 +229,7 @@ const bookmarks: bookmark[] = [
     { pattern: /^ぶくまびぅあ$|ブックマーク/i, site: 'https://nostr-bookmark-viewer3.vercel.app/' },
     { pattern: /^nostrends$|トレンド/i, site: 'https://nostrends.vercel.app/' },
     { pattern: /^nostrbuzzs$|buzz/i, site: 'https://nostrbuzzs.deno.dev/' },
-    { pattern: /^nosli$|togetterみたいな/i, site: 'https://nosli.vercel.app/' },
+    { pattern: /^nosli$|^かまくらさんのアレ$|^鎌倉さんのアレ$|togetterみたいな/i, site: 'https://nosli.vercel.app/' },
     { pattern: /^のぞき窓$|^のぞきまど$/i, site: 'https://relay-jp.nostr.wirednet.jp/index.html' },
     { pattern: /^検索ポータル$/i, site: 'https://nostr.hoku.in/' },
     { pattern: /^検索$/i, site: 'https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)' },
@@ -239,7 +239,8 @@ const bookmarks: bookmark[] = [
     { pattern: /^絵文字パック$|絵文字/i, site: 'https://emojis-iota.vercel.app/' },
     { pattern: /^イベントチェッカー$|チェッカー/i, site: 'https://koteitan.github.io/nostr-post-checker/' },
     { pattern: /^イベント削除$|削除/i, site: 'https://nostr-delete.vercel.app/' },
-    { pattern: /^流速|野洲田川定点観測所$/i, site: 'https://nostr-hotter-site.vercel.app/' },
+    { pattern: /^流速$|^観測所$|^野須田川観測所$|^野洲田川定点観測所$/i, site: 'https://nostr-hotter-site.vercel.app/' },
+    { pattern: /^のさらい$|^おさらい$|^たいむましん$|^かすてらふぃさんのアレ$/i, site: 'https://nosaray.vercel.app/' },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -543,6 +544,15 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doSUUMO(request: Request, env: Env): Promise<Response> {
+    const content = '🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞'
+    return new Response(JSON.stringify(createNoteWithTags(env, content, [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -612,6 +622,8 @@ export default {
                     return doWakaru(request, env)
                 case '/hakatano':
                     return doHakatano(request, env)
+                case '/suumo':
+                    return doSUUMO(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
