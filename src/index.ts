@@ -557,9 +557,11 @@ async function doSUUMO(request: Request, env: Env): Promise<Response> {
 
 async function doCAT(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
+    if (mention.pubkey === '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf') return new Response('')
     let res = await fetch('https://api.thecatapi.com/v1/images/search')
-    const images = await res.json()
-    return new Response(JSON.stringify(createReplyWithTags(env, mention, images[0].url, [])), {
+    const images: { [name: string]: any } = await res.json()
+    const tags = [['t', 'ぬっこ画像']]
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, `#ぬっこ画像\n${images[0].url}`, tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -568,9 +570,11 @@ async function doCAT(request: Request, env: Env): Promise<Response> {
 
 async function doDOG(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
+    if (mention.pubkey === '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf') return new Response('')
     let res = await fetch('https://api.thedogapi.com/v1/images/search')
-    const images = await res.json()
-    return new Response(JSON.stringify(createReplyWithTags(env, mention, images[0].url, [])), {
+    const images: { [name: string]: any } = await res.json()
+    const tags = [['t', 'いっぬ画像']]
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, `#いっぬ画像\n${images[0].url}`, tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
