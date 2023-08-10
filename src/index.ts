@@ -566,6 +566,17 @@ async function doCAT(request: Request, env: Env): Promise<Response> {
     })
 }
 
+async function doDOG(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    let res = await fetch('https://api.thedogapi.com/v1/images/search')
+    const images = await res.json()
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, images[0].url, [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -639,6 +650,8 @@ export default {
                     return doSUUMO(request, env)
                 case '/cat':
                     return doCAT(request, env)
+                case '/dog':
+                    return doDOG(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
