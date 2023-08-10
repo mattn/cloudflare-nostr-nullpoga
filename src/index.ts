@@ -9,6 +9,7 @@ import {
 
 const suddendeath = require('suddendeath')
 var eaw = require('eastasianwidth')
+var runes = require('runes')
 
 export interface Env {
     NULLPOGA_GA_TOKEN: string
@@ -477,10 +478,11 @@ async function doNya(request: Request, env: Env): Promise<Response> {
     let content = [' A＿＿A', '|・ㅅ・ |', '|っ　ｃ|', ''].join('\n')
     let arr = mention.content.replace(/にゃ！$/, '').split(/(:[^:]+:)/g).map((x: string) => {
         if (/^(:[^:]+:)$/.test(x)) return [x]
-        return [...x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜')]
+        //return [...x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜')]
+        return runes(x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜'))
     }).flat()
     for (const c of arr) {
-        if (c === '\n' || c === '\t' || c === ' ') continue
+        if (c == '' || c === '\n' || c === '\t' || c === ' ') continue
         const isW = ['F', 'W', 'A', 'N'].includes(eaw.eastAsianWidth(c))
         content += '|　' + (isW ? c : c + ' ') + '　|\n'
     }
@@ -547,6 +549,17 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
 async function doSUUMO(request: Request, env: Env): Promise<Response> {
     const content = '🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞'
     return new Response(JSON.stringify(createNoteWithTags(env, content, [])), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
+async function doCAT(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
+    let res = await fetch('https://api.thecatapi.com/v1/images/search')
+    const images = await res.json()
+    return new Response(JSON.stringify(createReplyWithTags(env, mention, images[0].url, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -624,6 +637,8 @@ export default {
                     return doHakatano(request, env)
                 case '/suumo':
                     return doSUUMO(request, env)
+                case '/cat':
+                    return doCAT(request, env)
                 case '/':
                     return doNullpoGa(request, env)
             }
