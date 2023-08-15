@@ -18,6 +18,8 @@ export interface Env {
     NULLPOGA_NSEC: string
 }
 
+const NULLPOGA_NPUB: string = '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf'
+
 const page = `
 <!doctype html>
 <link href="//fonts.bunny.net/css?family=sigmar-one:400" rel="stylesheet" />
@@ -535,15 +537,30 @@ async function doWakaru(request: Request, env: Env): Promise<Response> {
     })
 }
 
+const hakatano = new Map([
+    ['裸に', 'しろ'],
+    ['はだかに', 'しろ'],
+    ['たかなわ', 'ゲートウェイ'],
+    ['たかだの', 'ばば'],
+    ['さかたと', 'しお'],
+    ['はがたを', 'みろ'],
+    ['はかたの', 'しお'],
+])
+
 async function doHakatano(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    const content = mention.content.match(/裸|はっだっか/) ? 'しろ' : 'しお'
-    return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
-        headers: {
-            'content-type': 'application/json; charset=UTF-8',
-        },
-    })
+    const content = mention.content.replace(/っ/g, '').trim()
+    for (const [k, v] of hakatano) {
+        if (content === k) {
+            return new Response(JSON.stringify(createReplyWithTags(env, mention, v, tags)), {
+                headers: {
+                    'content-type': 'application/json; charset=UTF-8',
+                },
+            })
+        }
+    }
+    return new Response('')
 }
 
 async function doSUUMO(request: Request, env: Env): Promise<Response> {
@@ -557,7 +574,7 @@ async function doSUUMO(request: Request, env: Env): Promise<Response> {
 
 async function doCAT(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
-    if (mention.pubkey === '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf') return new Response('')
+    if (mention.pubkey === NULLPOGA_NPUB) return new Response('')
     let res = await fetch('https://api.thecatapi.com/v1/images/search')
     const images: { [name: string]: any } = await res.json()
     const tags = [['t', 'ぬっこ画像']]
@@ -570,7 +587,7 @@ async function doCAT(request: Request, env: Env): Promise<Response> {
 
 async function doDOG(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
-    if (mention.pubkey === '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf') return new Response('')
+    if (mention.pubkey === NULLPOGA_NPUB) return new Response('')
     let res = await fetch('https://api.thedogapi.com/v1/images/search')
     const images: { [name: string]: any } = await res.json()
     const tags = [['t', 'いっぬ画像']]
