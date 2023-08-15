@@ -543,6 +543,15 @@ const hakatano = new Map([
     ['たかなわ', 'ゲートウェイ'],
     ['たかだの', 'ばば'],
     ['さかたと', 'しお'],
+    ['かけいと', 'しお'],
+    ['もりもと', 'れお'],
+    ['とみーず', 'まさ'],
+    ['おかもと', 'まよ'],
+    ['まつもと', 'いよ'],
+    ['みわあき', 'ひろ'],
+    ['あたたた', 'たた'],
+    ['はやしら', 'いす'],
+    ['あるかの', 'いど'],
     ['はがたを', 'みろ'],
     ['はかたの', 'しお'],
 ])
@@ -550,7 +559,7 @@ const hakatano = new Map([
 async function doHakatano(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    const content = mention.content.replace(/っ/g, '').trim()
+    const content = mention.content.replace(/っ/g, '').replace(/[!！]/g, '').trim()
     for (const [k, v] of hakatano) {
         if (content === k) {
             return new Response(JSON.stringify(createReplyWithTags(env, mention, v, tags)), {
