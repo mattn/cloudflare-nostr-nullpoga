@@ -235,7 +235,7 @@ const bookmarks: bookmark[] = [
     { pattern: /^nosli$|^かまくらさんのアレ$|^鎌倉さんのアレ$|togetterみたいな/i, site: 'https://nosli.vercel.app/' },
     { pattern: /^のぞき窓$|^のぞきまど$/i, site: 'https://relay-jp.nostr.wirednet.jp/index.html' },
     { pattern: /^検索ポータル$/i, site: 'https://nostr.hoku.in/' },
-    { pattern: /^検索$/i, site: 'https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)' },
+    { pattern: /^検索$/i, site: 'https://nosey.vercel.app (鎌倉)\nhttps://search.yabu.me (いくらどん)\nhttps://showhyuga.pages.dev/utility/nos_search (ひゅうが)' },
     { pattern: /^nostrflu$|フォローリスト.*再送信/i, site: 'https://heguro.github.io/nostr-following-list-util/' },
     { pattern: /^nostter$|^のすったー$/i, site: 'https://nostter.vercel.app/' },
     { pattern: /^rabbit$/i, site: 'https://syusui-s.github.io/rabbit/' },
