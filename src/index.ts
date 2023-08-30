@@ -103,10 +103,13 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
+    if (mention.pubkey == pk) throw new Error('Self reply not acceptable')
     const tt = []
     tt.push(['e', mention.id], ['p', mention.pubkey])
-    for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
-        tt.push(tag)
+    if (mention.kind == 49) {
+        for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
+            tt.push(tag)
+        }
     }
     for (let tag of tags) {
         tt.push(tag)
