@@ -81,7 +81,7 @@ function bearerAuthentication(request: Request, secret: string) {
     return scheme === 'Bearer' && encoded === secret
 }
 
-function createLike(env: Env, mention: { [name: string]: any }, message: string): { [name: string]: any } {
+function createLike(env: Env, mention: { [name: string]: any }): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
@@ -103,13 +103,20 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
-    tags.push(['e', mention.id], ['p', mention.pubkey])
+    const tt = []
+    tt.push(['e', mention.id], ['p', mention.pubkey])
+    for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
+        tt.push(tag)
+    }
+    for (let tag of tags) {
+        tt.push(tag)
+    }
     let event = {
         id: '',
-        kind: 1,
+        kind: mention.kind,
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
-        tags: tags,
+        tags: tt,
         content: message,
         sig: '',
     }
@@ -118,16 +125,23 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     return event
 }
 
-function createNoteWithTags(env: Env, message: string, tags: string[][]): { [name: string]: any } {
+function createNoteWithTags(env: Env, mention: { [name: string]: any }, message: string, tags: string[][]): { [name: string]: any } {
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
+    const tt = []
+    for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
+        tt.push(tag)
+    }
+    for (let tag of tags) {
+        tt.push(tag)
+    }
     let event = {
         id: '',
-        kind: 1,
+        kind: mention.kind,
         pubkey: pk,
         created_at: Math.floor(Date.now() / 1000),
-        tags: tags,
+        tags: tt,
         content: message,
         sig: '',
     }
@@ -148,7 +162,8 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env)
     }
-    return new Response(JSON.stringify(createNoteWithTags(env, 'ぬるぽ', [])), {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createNoteWithTags(env, mention, 'ぬるぽ', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -159,7 +174,7 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
     const now = new Date(Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000))
     const hour = now.getHours()
     const message = 'ぬるぽが' + (hour < 12 ? '午前' : '午後') + (hour % 12) + '時をお伝えします'
-    return new Response(JSON.stringify(createNoteWithTags(env, message, [])), {
+    return new Response(JSON.stringify(createNoteWithTags(env, { kind: 1, tags: [] }, message, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -215,7 +230,8 @@ async function doUltrasoul(request: Request, env: Env): Promise<Response> {
 
 async function doHi(request: Request, env: Env): Promise<Response> {
     const content = Math.floor(Math.random() * 1000) === 0 ? 'なんやねん' : '＼ﾊｰｲ!🙌／'
-    return new Response(JSON.stringify(createNoteWithTags(env, content, [])), {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createNoteWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -370,7 +386,7 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/流して(\s+.*)$/)
     const wave = m ? m[1].trim() : '🌊🌊🌊🌊🌊🌊🌊🌊'
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    return new Response(JSON.stringify(createNoteWithTags(env, (wave + '\n').repeat(12), tags)), {
+    return new Response(JSON.stringify(createNoteWithTags(env, mention, (wave + '\n').repeat(12), tags)), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -468,7 +484,8 @@ async function doLike(request: Request, env: Env): Promise<Response> {
 }
 
 async function doPe(request: Request, env: Env): Promise<Response> {
-    return new Response(JSON.stringify(createNoteWithTags(env, 'ぺぇ〜', [])), {
+    const mention: { [name: string]: any } = await request.json()
+    return new Response(JSON.stringify(createNoteWithTags(env, mention, 'ぺぇ〜', [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
@@ -573,8 +590,9 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
 }
 
 async function doSUUMO(request: Request, env: Env): Promise<Response> {
+    const mention: { [name: string]: any } = await request.json()
     const content = '🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞'
-    return new Response(JSON.stringify(createNoteWithTags(env, content, [])), {
+    return new Response(JSON.stringify(createNoteWithTags(env, mention, content, [])), {
         headers: {
             'content-type': 'application/json; charset=UTF-8',
         },
