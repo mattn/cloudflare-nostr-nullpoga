@@ -133,8 +133,10 @@ function createNoteWithTags(env: Env, mention: { [name: string]: any }, message:
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
     const tt = []
-    for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
-        tt.push(tag)
+    if (mention.kind == 49) {
+        for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
+            tt.push(tag)
+        }
     }
     for (let tag of tags) {
         tt.push(tag)
