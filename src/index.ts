@@ -106,7 +106,7 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     if (mention.pubkey == pk) throw new Error('Self reply not acceptable')
     const tt = []
     tt.push(['e', mention.id], ['p', mention.pubkey])
-    if (mention.kind == 49) {
+    if (mention.kind == 42) {
         for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
             tt.push(tag)
         }
@@ -114,11 +114,12 @@ function createReplyWithTags(env: Env, mention: { [name: string]: any }, message
     for (let tag of tags) {
         tt.push(tag)
     }
+    const created_at = mention.created_at + 1
     let event = {
         id: '',
         kind: mention.kind,
         pubkey: pk,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: created_at, // Math.floor(Date.now() / 1000),
         tags: tt,
         content: message,
         sig: '',
@@ -133,7 +134,7 @@ function createNoteWithTags(env: Env, mention: { [name: string]: any }, message:
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
     const tt = []
-    if (mention.kind == 49) {
+    if (mention.kind == 42) {
         for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
             tt.push(tag)
         }
@@ -285,7 +286,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    let content = '' + mention.content
+    let content = mention.content.trim()
     content = content
         .replace(/^みんな(?:\s*)(.*)(?:\s*)てる[?？!！.]*$/s, '$1てないのお前だけ')
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でる[?？!！.]*$/s, '$1でないのお前だけ')
