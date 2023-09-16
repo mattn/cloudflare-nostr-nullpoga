@@ -266,6 +266,7 @@ const bookmarks: bookmark[] = [
     { pattern: /^イベント削除$|削除/i, site: 'https://nostr-delete.vercel.app/' },
     { pattern: /^流速$|^観測所$|^野須田川観測所$|^野洲田川定点観測所$/i, site: 'https://nostr-hotter-site.vercel.app/' },
     { pattern: /^のさらい$|^おさらい$|^たいむましん$|^かすてらふぃさんのアレ$/i, site: 'https://nosaray.vercel.app/' },
+    { pattern: /^ステータス$/i, site: 'https://nostatus.vercel.app/' },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -399,34 +400,13 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
     })
 }
 
+let lokuyowImages: any[] = []
+
 async function doLokuyow(request: Request, env: Env): Promise<Response> {
-    const icons = [
-        'hutu.png',
-        'hutu-2.png',
-        'hutu-up.png',
-        'huhe.png',
-        'nita.png',
-        'maji.png',
-        'bero.png',
-        'bero-ai.png',
-        'basu.png',
-        'kowa.png',
-        'kowa2.png',
-        'kowa2-ai.png',
-        'nita0.png',
-        'ike2.png',
-        'tiku.png',
-        'tiku2.png',
-        'mono.png',
-        'note13kmrhvkpnqk3tkg4z4x7527aqejqg90vk8hwe38khmd9hn29lcwsr5qxaj.jpg',
-        'note18aqm9p750934wyswmhfrdu93tnexrn6s62ser2fdlgs3xw7pc6csegutl2.jpg',
-        'note1x4sau4fqg7yg5l639x3d9yahhczmhvzgg6sc9adzttc2uqer4faqvx5p7q.jpg',
-        'note14x0c3vwz47ht4vnuvd0wxc5l8az2k09z4hx2hmw4zcgwz26nd9lsrr6f68.jpg',
-        'note10z20nh6k3cawg6d2alqdytqct5rud897l0eplv930zkzpt4k6zqs96lr8q.jpg',
-        'note1myxhqt5p3sc477h3fw7qfjgv37rx05cuj5yfj0y7u59yjszjjxgsczz76w.jpg',
-        'note1pju99k0jwhw3dftr4a2fk0kj5yaackklgaxx0tr9tstthnzkygwqyufrqg.jpg',
-    ]
-    const item = '#ロクヨウ画像\n' + 'https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/icon/' + icons[Math.floor(Math.random() * icons.length)]
+    if (lokuyowImages.length == 0) {
+        lokuyowImages = await fetch('https://lokuyow.github.io/images.json').then(resp => resp.json());
+    }
+    const item = '#ロクヨウ画像\n' + 'https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/' + lokuyowImages[Math.floor(Math.random() * lokuyowImages.length)].src
     const mention: { [name: string]: any } = await request.json()
     const tags = [['t', 'ロクヨウ画像']]
     return new Response(JSON.stringify(createReplyWithTags(env, mention, item, tags)), {
@@ -550,7 +530,7 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
 async function doWakaru(request: Request, env: Env): Promise<Response> {
     const mention: { [name: string]: any } = await request.json()
     const tags = mention.tags.filter((x: any[]) => x[0] === 'emoji')
-    const content = mention.content.match(/^[わ分]かる[!！]*$/) ?
+    const content = mention.content.trim().match(/^[わ分]かる[!！]*$/) ?
         'https://cdn.nostr.build/i/f795a1ba2802c5b397cb538d0068da2deb6e7510d8cfff877e5561a15d55199b.jpg' :
         'https://cdn.nostr.build/i/fd99d078ba96f85b5e3f754e1aeef5f42dbf3312b5a345c5f3ea6405ce2980a7.jpg'
     return new Response(JSON.stringify(createReplyWithTags(env, mention, content, tags)), {
