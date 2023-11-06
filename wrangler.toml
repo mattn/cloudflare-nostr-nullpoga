@@ -1,7 +1,10 @@
 name = "nullpoga"
 main = "src/index.ts"
-compatibility_date = "2023-05-09"
+compatibility_date = "2023-09-22"
 
 kv_namespaces = [
   { binding = "ochinchinland", id = "3346c3ec6c9e4c4a99d3e47aee777ee7" }
 ]
+
+[ai]
+binding = "AI"
