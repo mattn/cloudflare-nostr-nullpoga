@@ -450,6 +450,16 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
 
 let shioImages: any[] = []
 
+async function doUpdate(request: Request, env: Env): Promise<Response> {
+    shioImages = []
+    lokuyowImages = []
+    return new Response(JSON.stringify({ "status": "OK" }), {
+        headers: {
+            'content-type': 'application/json; charset=UTF-8',
+        },
+    })
+}
+
 async function doShio(request: Request, env: Env): Promise<Response> {
     if (shioImages.length == 0) {
         shioImages = await fetch('https://gist.githubusercontent.com/mattn/7bfa7895e3ee521dff9b24879081dad9/raw/fa9a428924eeaac071d4d1fe546c6cd62d42b78c/shio.json').then(resp => resp.json());
@@ -763,6 +773,8 @@ export default {
                     return doOchinchinLandStatus(request, env)
                 case '/clock':
                     return doClock(request, env)
+                case '/update':
+                    return doUpdate(request, env)
                 case '/':
                     return doPage(request, env)
             }
