@@ -462,10 +462,12 @@ async function doUpdate(request: Request, env: Env): Promise<Response> {
 
 async function doShio(request: Request, env: Env): Promise<Response> {
     if (shioImages.length == 0) {
-        shioImages = await fetch('https://gist.githubusercontent.com/mattn/7bfa7895e3ee521dff9b24879081dad9/raw/fa9a428924eeaac071d4d1fe546c6cd62d42b78c/shio.json').then(resp => resp.json());
+        shioImages = await fetch('https://gist.githubusercontent.com/mattn/7bfa7895e3ee521dff9b24879081dad9/raw/shio.json').then(resp => resp.json());
     }
-    const item = '#しお画像\n' + shioImages[Math.floor(Math.random() * shioImages.length)].src
     const mention: Event = await request.json()
+    const arg = mention.content.split(/\s+/)[1] || ''
+    const index = arg ? Number(arg) + 1 : Math.floor(Math.random() * shioImages.length)
+    const item = '#しお画像\n' + shioImages[index % shioImages.length].src
     const tags = [['t', 'しお画像']]
     return new Response(JSON.stringify(createReplyWithTags(env, mention, item, tags)), {
         headers: {
