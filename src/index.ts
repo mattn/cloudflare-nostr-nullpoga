@@ -466,7 +466,7 @@ async function doShio(request: Request, env: Env): Promise<Response> {
     }
     const mention: Event = await request.json()
     const arg = mention.content.split(/\s+/)[1] || ''
-    const index = arg ? Number(arg) + 1 : Math.floor(Math.random() * shioImages.length)
+    const index = arg ? Number(arg) - 1 : Math.floor(Math.random() * shioImages.length)
     const item = '#しお画像\n' + shioImages[index % shioImages.length].src
     const tags = [['t', 'しお画像']]
     return new Response(JSON.stringify(createReplyWithTags(env, mention, item, tags)), {
