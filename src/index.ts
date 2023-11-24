@@ -286,6 +286,8 @@ const bookmarks: bookmark[] = [
     { pattern: /^(位置の紹介|位置表示)$/i, site: 'https://mapnos.vercel.app/' },
     { pattern: /^(位置の更新)$/i, site: 'https://penpenpng.github.io/imhere-nostr/' },
     { pattern: /^(MATTN)$/, site: 'https://polygonscan.com/token/0xc8f48e2b873111aa820463915b3a637302171d61' },
+    { pattern: /^アドベントカレンダー\s*2023$/, site: 'https://adventar.org/calendars/9443' },
+    { pattern: /^アドベントカレンダー$/, site: 'https://adventar.org/calendars/9443' },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -305,7 +307,6 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
 
 async function doGoogle(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json()
-    let content = '' + mention.content.replace(/どこ[?？]*$/, '').trim()
     const m = mention.content.match(/^\[(.+)\]\[検索\]$/) || mention.content.match(/^検索:(.+)$/) || []
     const contents = 'https://www.google.com/search?q=' + encodeURIComponent((m ? m[1] : '').trim())
     return new Response(JSON.stringify(createReplyWithTags(env, mention, contents, [])), {
@@ -313,7 +314,6 @@ async function doGoogle(request: Request, env: Env): Promise<Response> {
             'content-type': 'application/json; charset=UTF-8',
         },
     })
-    return new Response('')
 }
 
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
