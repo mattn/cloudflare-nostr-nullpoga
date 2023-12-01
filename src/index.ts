@@ -6,19 +6,22 @@ import {
     getEventHash,
     signEvent,
     Event,
+    relayInit,
 } from 'nostr-tools'
 
 import { Ai } from '@cloudflare/ai';
 
 const suddendeath = require('suddendeath')
-var eaw = require('eastasianwidth')
-var runes = require('runes')
+const eaw = require('eastasianwidth')
+const runes = require('runes')
 
 export interface Env {
     NULLPOGA_GA_TOKEN: string
     NULLPOGA_VA_TOKEN: string
     NULLPOGA_LOGINBONUS_TOKEN: string
     NULLPOGA_NSEC: string
+    ochinchinland: KVNamespace;
+    nostr_relationship: KVNamespace;
 }
 
 const NULLPOGA_NPUB: string = '4e86cdbb1ed747ff40c65303d1fc463e10aecb113049b05fc4317c29e31ccaaf'
@@ -107,10 +110,10 @@ function createReplyWithTags(env: Env, mention: Event, message: string, tags: st
     const decoded = nip19.decode(env.NULLPOGA_NSEC)
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
-    if (mention.pubkey == pk) throw new Error('Self reply not acceptable')
+    if (mention.pubkey === pk) throw new Error('Self reply not acceptable')
     const tt = []
     tt.push(['e', mention.id], ['p', mention.pubkey])
-    if (mention.kind == 42) {
+    if (mention.kind === 42) {
         for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
             tt.push(tag)
         }
@@ -138,7 +141,7 @@ function createNoteWithTags(env: Env, mention: Event, message: string, tags: str
     const sk = decoded.data as string
     const pk = getPublicKey(sk)
     const tt = []
-    if (mention.kind == 42) {
+    if (mention.kind === 42) {
         for (let tag of mention.tags.filter((x: any[]) => x[0] === 'e')) {
             tt.push(tag)
         }
@@ -167,6 +170,59 @@ async function doPage(_request: Request, _env: Env): Promise<Response> {
             'content-type': 'text/html; charset=UTF-8',
         },
     })
+}
+
+type Relation = {
+    follow: Event;
+    mute: Event;
+    time: number;
+};
+
+async function doRelationsihp(request: Request, env: Env): Promise<Response> {
+    const { pathname } = new URL(request.url)
+    const pathArray = pathname.split('/');
+    let relation = JSON.parse((await env.nostr_relationship.get(pathArray[2])) as string) as Relation | null
+    if (relation === null || Date.now() - relation.time > 1800000) {
+        const relay = relayInit('wss://yabu.me')
+        await relay.connect()
+        const sk = pathArray[3].startsWith('npub1') ? nip19.decode(pathArray[2]).data as string : pathArray[2]
+        const follow = await relay.get({
+            kinds: [3], authors: [sk],
+        })
+        if (follow === null) throw "Not Found"
+        const mute = await relay.get({
+            kinds: [10000], authors: [sk],
+        })
+        if (mute === null) throw "Not Found"
+        relation = {
+            follow: follow,
+            mute: mute,
+            time: Date.now(),
+        }
+        await env.nostr_relationship.put(pathArray[2], JSON.stringify(relation))
+    }
+    if (pathArray.length === 5) {
+        const sk = pathArray[3].startsWith('npub1') ? nip19.decode(pathArray[3]).data as string : pathArray[3]
+        switch (pathArray[4]) {
+            case 'follow':
+                const followed = relation.follow.tags.filter((x: any[]) => x[0] === 'p' && x[1] === sk).length > 0
+                return new Response(JSON.stringify(followed), {
+                    headers: {
+                        'access-control-allow-origin': '*',
+                        'content-type': 'application/json; charset=UTF-8',
+                    },
+                })
+            case 'mute':
+                const muted = relation.mute.tags.filter((x: any[]) => x[0] === 'p' && x[1] === sk).length > 0
+                return new Response(JSON.stringify(muted), {
+                    headers: {
+                        'access-control-allow-origin': '*',
+                        'content-type': 'application/json; charset=UTF-8',
+                    },
+                })
+        }
+    }
+    return notFound(request, env)
 }
 
 async function doNullpo(request: Request, env: Env): Promise<Response> {
@@ -286,8 +342,7 @@ const bookmarks: bookmark[] = [
     { pattern: /^(位置の紹介|位置表示)$/i, site: 'https://mapnos.vercel.app/' },
     { pattern: /^(位置の更新)$/i, site: 'https://penpenpng.github.io/imhere-nostr/' },
     { pattern: /^(MATTN)$/, site: 'https://polygonscan.com/token/0xc8f48e2b873111aa820463915b3a637302171d61' },
-    { pattern: /^アドベントカレンダー\s*2023$/, site: 'https://adventar.org/calendars/9443' },
-    { pattern: /^アドベントカレンダー$/, site: 'https://adventar.org/calendars/9443' },
+    { pattern: /^アドベントカレンダー$/, site: 'Nostr (1) https://adventar.org/calendars/8794\nNostr (2) https://adventar.org/calendars/8880\nBlueSky https://adventar.org/calendars/9443' },
 ]
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -435,7 +490,7 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
 let lokuyowImages: any[] = []
 
 async function doLokuyow(request: Request, env: Env): Promise<Response> {
-    if (lokuyowImages.length == 0) {
+    if (lokuyowImages.length === 0) {
         lokuyowImages = await fetch('https://lokuyow.github.io/images.json').then(resp => resp.json());
     }
     const item = '#ロクヨウ画像\n' + 'https://raw.githubusercontent.com/Lokuyow/Lokuyow.github.io/main/' + lokuyowImages[Math.floor(Math.random() * lokuyowImages.length)].src
@@ -450,7 +505,7 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
 
 let shioImages: any[] = []
 
-async function doUpdate(request: Request, env: Env): Promise<Response> {
+async function doUpdate(_request: Request, _env: Env): Promise<Response> {
     shioImages = []
     lokuyowImages = []
     return new Response(JSON.stringify({ "status": "OK" }), {
@@ -461,7 +516,7 @@ async function doUpdate(request: Request, env: Env): Promise<Response> {
 }
 
 async function doShio(request: Request, env: Env): Promise<Response> {
-    if (shioImages.length == 0) {
+    if (shioImages.length === 0) {
         shioImages = await fetch('https://gist.githubusercontent.com/mattn/7bfa7895e3ee521dff9b24879081dad9/raw/shio.json').then(resp => resp.json());
     }
     const mention: Event = await request.json()
@@ -548,7 +603,7 @@ async function doNya(request: Request, env: Env): Promise<Response> {
         return runes(x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜'))
     }).flat()
     for (const c of arr) {
-        if (c == '' || c === '\n' || c === '\t' || c === ' ') continue
+        if (c === '' || c === '\n' || c === '\t' || c === ' ') continue
         const isW = ['F', 'W', 'A', 'N'].includes(eaw.eastAsianWidth(c))
         content += '|　' + (isW ? c : c + ' ') + '　|\n'
     }
@@ -571,7 +626,7 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
         return runes(x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜'))
     }).flat()
     for (const c of arr) {
-        if (c == '' || c === '\n' || c === '\t' || c === ' ') continue
+        if (c === '' || c === '\n' || c === '\t' || c === ' ') continue
         const isW = ['F', 'W', 'A', 'N'].includes(eaw.eastAsianWidth(c))
         content += '　 |   |  ' + (isW ? c : c + ' ') + ' ｜\n'
     }
@@ -760,6 +815,7 @@ export default {
         request: Request,
         env: Env): Promise<Response> {
         const { protocol, pathname } = new URL(request.url)
+        const pathArray = pathname.split('/');
 
         if ('https:' !== protocol || 'https' !== request.headers.get('x-forwarded-proto')) {
             throw new Error('Please use a HTTPS connection.')
@@ -768,87 +824,89 @@ export default {
         console.log(`${request.method}: ${request.url} `)
 
         if (request.method === 'GET') {
-            switch (pathname) {
-                case '/nullpo':
+            switch (pathArray[1]) {
+                case 'nullpo':
                     return doNullpo(request, env)
-                case '/ochinchinland':
+                case 'ochinchinland':
                     return doOchinchinLandStatus(request, env)
-                case '/clock':
+                case 'clock':
                     return doClock(request, env)
-                case '/update':
+                case 'update':
                     return doUpdate(request, env)
-                case '/':
+                case 'relationship':
+                    return doRelationsihp(request, env)
+                case '':
                     return doPage(request, env)
             }
             return notFound(request, env)
         }
         if (request.method === 'POST') {
-            switch (pathname) {
-                case '/loginbonus':
+            switch (pathArray[1]) {
+                case 'loginbonus':
                     return doLoginbonus(request, env)
-                case '/lokuyow':
+                case 'lokuyow':
                     return doLokuyow(request, env)
-                case '/shio':
+                case 'shio':
                     return doShio(request, env)
-                case '/tsurupo':
+                case 'tsurupo':
                     return doTsurupoVa(request, env)
-                case '/nagashite':
+                case 'nagashite':
                     return doNagashite(request, env)
-                case '/nattoruyarogai':
+                case 'nattoruyarogai':
                     return doNattoruyarogai(request, env)
-                case '/suddendeath':
+                case 'suddendeath':
                     return doSuddendeanth(request, env)
-                case '/mahjongpai':
+                case 'mahjongpai':
                     return doMahjongPai(request, env)
-                case '/onlyyou':
+                case 'onlyyou':
                     return doOnlyYou(request, env)
-                case '/suitou':
+                case 'suitou':
                     return doSuitou(request, env)
-                case '/igyo':
+                case 'igyo':
                     return doIgyo(request, env)
-                case '/letterpack':
+                case 'letterpack':
                     return doLetterpack(request, env)
-                case '/ultrasoul':
+                case 'ultrasoul':
                     return doUltrasoul(request, env)
-                case '/hi':
+                case 'hi':
                     return doHi(request, env)
-                case '/angel':
+                case 'angel':
                     return doAngel(request, env)
-                case '/where':
+                case 'where':
                     return doWhere(request, env)
-                case '/google':
+                case 'google':
                     return doGoogle(request, env)
-                case '/distance':
+                case 'distance':
                     return doDistance(request, env)
-                case '/like':
+                case 'like':
                     return doLike(request, env)
-                case '/pe':
+                case 'pe':
                     return doPe(request, env)
-                case '/nya':
+                case 'nya':
                     return doNya(request, env)
-                case '/grave':
+                case 'grave':
                     return doGrave(request, env)
-                case '/ochinchinland':
+                case 'ochinchinland':
                     return doOchinchinLand(request, env)
-                case '/wakaru':
+                case 'wakaru':
                     return doWakaru(request, env)
-                case '/hakatano':
+                case 'hakatano':
                     return doHakatano(request, env)
-                case '/suumo':
+                case 'suumo':
                     return doSUUMO(request, env)
-                case '/cat':
+                case 'cat':
                     return doCAT(request, env)
-                case '/dog':
+                case 'dog':
                     return doDOG(request, env)
-                case '/nemui':
+                case 'nemui':
                     return doSleeply(request, env)
-                case '/hit':
+                case 'hit':
                     return doHit(request, env)
-                case '/translate':
+                case 'translate':
                     return doTranslate(request, env)
-                case '/metadata':
+                case 'metadata':
                     return doMetadata(request, env)
-                case '/':
+                case '':
                     return doNullpoGa(request, env)
             }
             return notFound(request, env)

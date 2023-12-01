@@ -4,4 +4,5 @@ export { };
 // https://github.com/cloudflare/workers-types#using-bindings
 declare global {
     const ochinchinland: KVNamespace;
+    const nostr_relationship: KVNamespace;
 }
