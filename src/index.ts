@@ -286,8 +286,12 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
     const mention = {
         kind: 1,
         tags: [],
+        pubkey: '',
+        id: '',
+        sig: '',
+        content: '',
         created_at: Math.floor(Date.now() / 1000),
-    };
+    } as Event;
     return new Response(
         JSON.stringify(createNoteWithTags(env, mention, message, [])),
         {
@@ -484,9 +488,9 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             );
         }
     }
-    const m = content.match(/^NIP-?([0-9]+)/)
-    if (m) {
-        const url = "https://github.com/nostr-protocol/nips/blob/master/" + m[1] + ".md";
+    const mNIP = content.match(/^NIP-?([0-9]+)/i)
+    if (mNIP) {
+        const url = "https://github.com/nostr-protocol/nips/blob/master/" + mNIP[1] + ".md";
         const res = await fetch(url);
         if (res.ok) {
             return new Response(
@@ -497,16 +501,52 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
                     },
                 },
             )
-        } else {
-            return new Response(
-                JSON.stringify(createReplyWithTags(env, mention, "そんなん無い", [])),
-                {
-                    headers: {
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                },
-            )
         }
+        return new Response(
+            JSON.stringify(createReplyWithTags(env, mention, "そんなん無い", [])),
+            {
+                headers: {
+                    "content-type": "application/json; charset=UTF-8",
+                },
+            },
+        )
+    }
+    const mKIND = content.match(/^KIND ([0-9]+)/i)
+    if (mKIND) {
+        const url = "https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md"
+        const res = await fetch(url);
+        if (res.ok) {
+            const m = new Map<number, string>();
+            (await res.text()).split(/\n## Event Kinds/)[1].split(/\n\n/)[0].split(/\n/).forEach(x => {
+                const tok = x.split(/\|/)
+                if (tok.length < 4) return
+                const kind = tok[1].replace(/[`` ]/g, '') || ''
+                if (kind === '') return
+                const page = tok[3].match(/\(([0-9]+\.md)\)/)?.[1] || ''
+                if (page === '') return
+                m.set(Number(kind), page)
+            })
+            const kind = Number(mKIND[1])
+            if (m.has(kind)) {
+                const url = "https://github.com/nostr-protocol/nips/blob/master/" + m.get(kind)
+                return new Response(
+                    JSON.stringify(createReplyWithTags(env, mention, url, [])),
+                    {
+                        headers: {
+                            "content-type": "application/json; charset=UTF-8",
+                        },
+                    },
+                )
+            }
+        }
+        return new Response(
+            JSON.stringify(createReplyWithTags(env, mention, "そんなん無い", [])),
+            {
+                headers: {
+                    "content-type": "application/json; charset=UTF-8",
+                },
+            },
+        )
     }
     return new Response("");
 }
@@ -852,9 +892,13 @@ async function doNya(request: Request, env: Env): Promise<Response> {
 
 async function doGrave(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    let content = ["　 ＿＿_", "　 |＼ 　＼", "　 |   |￣   ｜", ""].join("\n");
+    const content = mention.content.trim();
+    if (!content.match(/.の墓$/)) {
+        return new Response("");
+    }
+    let result = ["　 ＿＿_", "　 |＼ 　＼", "　 |   |￣   ｜", ""].join("\n");
 
-    let arr = mention.content.replace(/の墓$/, "").split(/(:[^:]+:)/g).map(
+    let arr = content.replace(/の墓$/, "").split(/(:[^:]+:)/g).map(
         (x: string) => {
             if (/^(:[^:]+:)$/.test(x)) return [x];
             //return [...x.replace(/[A-Za-z0-9]/g, (s) => String.fromCharCode(s.charCodeAt(0) + 0xFEE0)).replace(/[ー〜]/g, '｜')]
@@ -869,9 +913,9 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
     for (const c of arr) {
         if (c === "" || c === "\n" || c === "\t" || c === " ") continue;
         const isW = ["F", "W", "A", "N"].includes(eaw.eastAsianWidth(c));
-        content += "　 |   |  " + (isW ? c : c + " ") + " ｜\n";
+        result += "　 |   |  " + (isW ? c : c + " ") + " ｜\n";
     }
-    content += [
+    result += [
         "　 |   |  の ｜",
         " ＿|   |  墓 ｜",
         "|＼＼|＿＿亅＼",
@@ -879,7 +923,20 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
     ].join("\n");
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
     return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, tags)),
+        JSON.stringify(createReplyWithTags(env, mention, result, tags)),
+        {
+            headers: {
+                "content-type": "application/json; charset=UTF-8",
+            },
+        },
+    );
+}
+
+async function doFumofumo(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const content = 'https://image.nostr.build/f8b39a30c03aa0fafdd74f7f6be3956696f4546ced43c28b0a6103c6ff3a3478.jpg'
+    return new Response(
+        JSON.stringify(createReplyWithTags(env, mention, content, [])),
         {
             headers: {
                 "content-type": "application/json; charset=UTF-8",
@@ -1077,6 +1134,30 @@ async function doMetadata(request: Request, env: Env): Promise<Response> {
     );
 }
 
+async function doBtcHow(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const url = "https://coincheck.com/ja/exchange/rates/search?pair=btc_jpy&time=" + new Date().toISOString()
+    const res = await fetch(url);
+    if (res.ok) {
+        return new Response(
+            JSON.stringify(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json()).rate} 円です`, [])),
+            {
+                headers: {
+                    "content-type": "application/json; charset=UTF-8",
+                },
+            },
+        )
+    }
+    return new Response(
+        JSON.stringify(createNoteWithTags(env, mention, '', [])),
+        {
+            headers: {
+                "content-type": "application/json; charset=UTF-8",
+            },
+        },
+    );
+}
+
 async function doSleeply(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     return new Response(
@@ -1187,6 +1268,8 @@ export default {
                     return doGrave(request, env);
                 case "ochinchinland":
                     return doOchinchinLand(request, env);
+                case "fumofumo":
+                    return doFumofumo(request, env);
                 case "wakaru":
                     return doWakaru(request, env);
                 case "hakatano":
@@ -1205,6 +1288,8 @@ export default {
                     return doTranslate(request, env);
                 case "metadata":
                     return doMetadata(request, env);
+                case "btchow":
+                    return doBtcHow(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
