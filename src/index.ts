@@ -11,9 +11,9 @@ import {
 
 import { Ai } from "@cloudflare/ai";
 
-const suddendeath = require("suddendeath");
-const eaw = require("eastasianwidth");
-const runes = require("runes");
+let suddendeath = require("suddendeath");
+let eaw = require("eastasianwidth");
+let runes = require("runes");
 
 export interface Env {
     NULLPOGA_GA_TOKEN: string;
@@ -22,6 +22,7 @@ export interface Env {
     NULLPOGA_NSEC: string;
     ochinchinland: KVNamespace;
     nostr_relationship: KVNamespace;
+    AI: any;
 }
 
 const NULLPOGA_NPUB =
@@ -286,10 +287,10 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
     const mention = {
         kind: 1,
         tags: [],
-        pubkey: '',
-        id: '',
-        sig: '',
-        content: '',
+        pubkey: "",
+        id: "",
+        sig: "",
+        content: "",
         created_at: Math.floor(Date.now() / 1000),
     } as Event;
     return new Response(
@@ -520,10 +521,10 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             (await res.text()).split(/\n## Event Kinds/)[1].split(/\n\n/)[0].split(/\n/).forEach(x => {
                 const tok = x.split(/\|/)
                 if (tok.length < 4) return
-                const kind = tok[1].replace(/[`` ]/g, '') || ''
-                if (kind === '') return
-                const page = tok[3].match(/\(([0-9]+\.md)\)/)?.[1] || ''
-                if (page === '') return
+                const kind = tok[1].replace(/[`` ]/g, "") || ""
+                if (kind === "") return
+                const page = tok[3].match(/\(([0-9]+\.md)\)/)?.[1] || ""
+                if (page === "") return
                 m.set(Number(kind), page)
             })
             const kind = Number(mKIND[1])
@@ -934,7 +935,7 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
 
 async function doFumofumo(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    const content = 'https://image.nostr.build/f8b39a30c03aa0fafdd74f7f6be3956696f4546ced43c28b0a6103c6ff3a3478.jpg'
+    const content = "https://image.nostr.build/f8b39a30c03aa0fafdd74f7f6be3956696f4546ced43c28b0a6103c6ff3a3478.jpg"
     return new Response(
         JSON.stringify(createReplyWithTags(env, mention, content, [])),
         {
@@ -1134,13 +1135,19 @@ async function doMetadata(request: Request, env: Env): Promise<Response> {
     );
 }
 
+export interface Rate {
+    pair: string;
+    time: string;
+    rate: string;
+}
+
 async function doBtcHow(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const url = "https://coincheck.com/ja/exchange/rates/search?pair=btc_jpy&time=" + new Date().toISOString()
     const res = await fetch(url);
     if (res.ok) {
         return new Response(
-            JSON.stringify(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json()).rate} 円です`, [])),
+            JSON.stringify(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json() as Rate).rate} 円です`, [])),
             {
                 headers: {
                     "content-type": "application/json; charset=UTF-8",
@@ -1149,7 +1156,43 @@ async function doBtcHow(request: Request, env: Env): Promise<Response> {
         )
     }
     return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, '', [])),
+        JSON.stringify(createNoteWithTags(env, mention, "", [])),
+        {
+            headers: {
+                "content-type": "application/json; charset=UTF-8",
+            },
+        },
+    );
+}
+
+export interface Quotes {
+    quotes: {
+        high: string;
+        open: string;
+        bid: string;
+        currencyPairCode: string;
+        ask: string;
+        low: string;
+    }[]
+}
+
+async function doJpyHow(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const url = "https://www.gaitameonline.com/rateaj/getrate"
+    const res = await fetch(url);
+    if (res.ok) {
+        const usdjpy: string = (await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid || '?';
+        return new Response(
+            JSON.stringify(createReplyWithTags(env, mention, `現在の円相場は1ドル ${usdjpy} 円です`, [])),
+            {
+                headers: {
+                    "content-type": "application/json; charset=UTF-8",
+                },
+            },
+        )
+    }
+    return new Response(
+        JSON.stringify(createNoteWithTags(env, mention, "", [])),
         {
             headers: {
                 "content-type": "application/json; charset=UTF-8",
@@ -1290,6 +1333,8 @@ export default {
                     return doMetadata(request, env);
                 case "btchow":
                     return doBtcHow(request, env);
+                case "jpyhow":
+                    return doJpyHow(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
