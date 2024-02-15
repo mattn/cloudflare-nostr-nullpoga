@@ -176,6 +176,16 @@ function createNoteWithTags(
     return event;
 }
 
+function JSONResponse(value: any): Response {
+    if (value === null) return new Response("");
+    return new Response(JSON.stringify(value), {
+        headers: {
+            "access-control-allow-origin": "*",
+            "content-type": "application/json; charset=UTF-8",
+        },
+    });
+}
+
 async function doPage(_request: Request, _env: Env): Promise<Response> {
     return new Response(page, {
         headers: {
@@ -225,12 +235,7 @@ async function doRelationsihp(request: Request, env: Env): Promise<Response> {
         await env.nostr_relationship.put(pathArray[2], JSON.stringify(relation));
     }
     if (pathArray.length === 3) {
-        return new Response(JSON.stringify(relation), {
-            headers: {
-                "access-control-allow-origin": "*",
-                "content-type": "application/json; charset=UTF-8",
-            },
-        });
+        return JSONResponse(relation);
     }
     if (pathArray.length === 5) {
         const sk = pathArray[3].startsWith("npub1")
@@ -241,22 +246,12 @@ async function doRelationsihp(request: Request, env: Env): Promise<Response> {
                 const followed = relation.follow.tags.filter((x: any[]) =>
                     x[0] === "p" && x[1] === sk
                 ).length > 0;
-                return new Response(JSON.stringify(followed), {
-                    headers: {
-                        "access-control-allow-origin": "*",
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                });
+                return JSONResponse(followed);
             case "mute":
                 const muted = relation.mute.tags.filter((x: any[]) =>
                     x[0] === "p" && x[1] === sk
                 ).length > 0;
-                return new Response(JSON.stringify(muted), {
-                    headers: {
-                        "access-control-allow-origin": "*",
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                });
+                return JSONResponse(muted)
         }
     }
     return notFound(request, env);
@@ -267,14 +262,7 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env);
     }
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, "ぬるぽ", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, "ぬるぽ", []))
 }
 
 async function doClock(_request: Request, env: Env): Promise<Response> {
@@ -293,14 +281,7 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
         content: "",
         created_at: Math.floor(Date.now() / 1000),
     } as Event;
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, message, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, message, []))
 }
 
 async function doOchinchinLandStatus(
@@ -308,24 +289,12 @@ async function doOchinchinLandStatus(
     env: Env,
 ): Promise<Response> {
     const status = (await env.ochinchinland.get("status")) as string;
-    return new Response(JSON.stringify({ "status": status }), {
-        headers: {
-            "content-type": "application/json; charset=UTF-8",
-            "access-control-allow-origin": "*",
-        },
-    });
+    return JSONResponse({ "status": status })
 }
 
 async function doSuitou(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, "えらい！", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, "えらい！", []))
 }
 
 async function doIgyo(request: Request, env: Env): Promise<Response> {
@@ -335,71 +304,34 @@ async function doIgyo(request: Request, env: Env): Promise<Response> {
         "igyo",
         "https://i.gyazo.com/6ca054b84392b4b1bd0038d305f72b64.png",
     ]];
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, ":igyo:", tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, ":igyo:", tags))
 }
 
 async function doLetterpack(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(
-                env,
-                mention,
-                "https://i.gyazo.com/d3d5ab0007253e060482e52e5734d402.png",
-                [],
-            ),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(
+        env,
+        mention,
+        "https://i.gyazo.com/d3d5ab0007253e060482e52e5734d402.png",
+        [],
+    ))
 }
 
 async function doUltrasoul(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, "ｳﾙﾄﾗｿｩ!", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, "ｳﾙﾄﾗｿｩ!", []))
 }
 
 async function doAngel(request: Request, env: Env): Promise<Response> {
     const content = "＼ｴｰﾝｼﾞｪｰﾙ!🙌／'";
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
 async function doHi(request: Request, env: Env): Promise<Response> {
     const content = "＼ﾊｰｲ!🙌／'";
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
 export interface bookmark {
@@ -479,14 +411,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
     let content = "" + mention.content.replace(/どこ[?？]*$/, "").trim();
     for (const b of bookmarks) {
         if (content.match(b.pattern)) {
-            return new Response(
-                JSON.stringify(createReplyWithTags(env, mention, b.site, [])),
-                {
-                    headers: {
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                },
-            );
+            return JSONResponse(createReplyWithTags(env, mention, b.site, []))
         }
     }
     const mNIP = content.match(/^NIP-?([0-9]+)/i)
@@ -494,23 +419,9 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
         const url = "https://github.com/nostr-protocol/nips/blob/master/" + mNIP[1] + ".md";
         const res = await fetch(url);
         if (res.ok) {
-            return new Response(
-                JSON.stringify(createReplyWithTags(env, mention, url, [])),
-                {
-                    headers: {
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                },
-            )
+            return JSONResponse(createReplyWithTags(env, mention, url, []))
         }
-        return new Response(
-            JSON.stringify(createReplyWithTags(env, mention, "そんなん無い", [])),
-            {
-                headers: {
-                    "content-type": "application/json; charset=UTF-8",
-                },
-            },
-        )
+        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
     }
     const mKIND = content.match(/^KIND ([0-9]+)/i)
     if (mKIND) {
@@ -530,26 +441,12 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             const kind = Number(mKIND[1])
             if (m.has(kind)) {
                 const url = "https://github.com/nostr-protocol/nips/blob/master/" + m.get(kind)
-                return new Response(
-                    JSON.stringify(createReplyWithTags(env, mention, url, [])),
-                    {
-                        headers: {
-                            "content-type": "application/json; charset=UTF-8",
-                        },
-                    },
-                )
+                return JSONResponse(createReplyWithTags(env, mention, url, []))
             }
         }
-        return new Response(
-            JSON.stringify(createReplyWithTags(env, mention, "そんなん無い", [])),
-            {
-                headers: {
-                    "content-type": "application/json; charset=UTF-8",
-                },
-            },
-        )
+        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
     }
-    return new Response("");
+    return JSONResponse(null);
 }
 
 async function doGoogle(request: Request, env: Env): Promise<Response> {
@@ -558,14 +455,7 @@ async function doGoogle(request: Request, env: Env): Promise<Response> {
         mention.content.match(/^検索:(.+)$/) || [];
     const contents = "https://www.google.com/search?q=" +
         encodeURIComponent((m ? m[1] : "").trim());
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, contents, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, contents, []))
 }
 
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
@@ -580,14 +470,7 @@ async function doOnlyYou(request: Request, env: Env): Promise<Response> {
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, "$1でるのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, "$1てんのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, "$1でんのお前だけ");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, tags))
 }
 
 async function doNullpoGa(request: Request, env: Env): Promise<Response> {
@@ -600,21 +483,14 @@ async function doNullpoGa(request: Request, env: Env): Promise<Response> {
         !content.match(/^ぬ[ぬるぽっー\n]+$/) || !content.match(/る/) ||
         !content.match(/ぽ/)
     ) {
-        return new Response("");
+        return JSONResponse(null);
     }
     content = content.replaceAll("ぬ", "ｶﾞ").replaceAll("る", "ｯ").replaceAll(
         "ぽっ",
         "ｶﾞｯ",
     ).replaceAll("ーぽ", "ｰｶﾞｯ").replaceAll("ー", "ｰ").replaceAll("っ", "ｯ")
         .replaceAll(/ｯ+/g, "ｯ").replaceAll("ぽ", "");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, []))
 }
 
 async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
@@ -627,37 +503,23 @@ async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
         !content.match(/^つ[つるぽっー\n]+$/) || !content.match(/る/) ||
         !content.match(/ぽ/)
     ) {
-        return new Response("");
+        return JSONResponse(null);
     }
     content = content.replaceAll("つ", "ｳﾞｧ").replaceAll("る", "ｯ").replaceAll(
         "ぽっ",
         "ｳﾞｧｯ",
     ).replaceAll("ーぽ", "ｰｳﾞｧｯ").replaceAll("ー", "ｰ").replaceAll("っ", "ｯ")
         .replaceAll(/ｯ+/g, "ｯ").replaceAll("ぽ", "");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, []))
 }
 
 async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     let content = "" + mention.content;
     if (!content.match(/そうはならんやろ/)) {
-        return new Response("");
+        return JSONResponse(null);
     }
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, "なっとるやろがい!!", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, "なっとるやろがい!!", []))
 }
 
 const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡'";
@@ -669,34 +531,20 @@ async function doMahjongPai(request: Request, env: Env): Promise<Response> {
         .map((v) => ({ v, sort: Math.random() }))
         .sort((a, b) => a.sort - b.sort).map(({ v }) => v)
         .slice(0, 14).sort().join("");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, []))
 }
 
 async function doSuddendeanth(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(
-                env,
-                mention,
-                suddendeath(mention.content, true),
-                tags,
-            ),
+    return JSONResponse(
+        createReplyWithTags(
+            env,
+            mention,
+            suddendeath(mention.content, true),
+            tags,
         ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    )
 }
 
 async function doLoginbonus(request: Request, env: Env): Promise<Response> {
@@ -704,14 +552,7 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env);
     }
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, "ありません", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, "ありません", []))
 }
 
 async function doNagashite(request: Request, env: Env): Promise<Response> {
@@ -719,16 +560,7 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/流して(\s+.*)$/);
     const wave = m ? m[1].trim() : "🌊🌊🌊🌊🌊🌊🌊🌊'";
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return new Response(
-        JSON.stringify(
-            createNoteWithTags(env, mention, (wave + "\n").repeat(12), tags),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, (wave + "\n").repeat(12), tags))
 }
 
 let lokuyowImages: any[] = [];
@@ -744,14 +576,7 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
         lokuyowImages[Math.floor(Math.random() * lokuyowImages.length)].src;
     const mention: Event = await request.json();
     const tags = [["t", "ロクヨウ画像"]];
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, item, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, item, tags))
 }
 
 let shioImages: any[] = [];
@@ -759,11 +584,7 @@ let shioImages: any[] = [];
 async function doUpdate(_request: Request, _env: Env): Promise<Response> {
     shioImages = [];
     lokuyowImages = [];
-    return new Response(JSON.stringify({ "status": "OK" }), {
-        headers: {
-            "content-type": "application/json; charset=UTF-8",
-        },
-    });
+    return JSONResponse({ "status": "OK" })
 }
 
 async function doShio(request: Request, env: Env): Promise<Response> {
@@ -779,14 +600,7 @@ async function doShio(request: Request, env: Env): Promise<Response> {
         : Math.floor(Math.random() * shioImages.length);
     const item = "#しお画像\n" + shioImages[index % shioImages.length].src;
     const tags = [["t", "しお画像"]];
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, item, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, item, tags))
 }
 
 function levenshtein(a: string, b: string): number {
@@ -825,38 +639,18 @@ async function doDistance(request: Request, env: Env): Promise<Response> {
     let m = content.match(/^"(\S+)"と"(\S+)"の文字列距離$/);
     if (!m) m = content.match(/^「(\S+)」と「(\S+)」の文字列距離$/);
     if (!m) m = content.match(/^(\S+)\s*と\s*(\S+)\s*の文字列距離$/);
-    if (!m) return new Response("");
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(env, mention, `${levenshtein(m[1], m[2])}です`, []),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    if (!m) return JSONResponse(null);
+    return JSONResponse(createReplyWithTags(env, mention, `${levenshtein(m[1], m[2])}です`, []));
 }
 
 async function doOppai(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(JSON.stringify(createLike(env, mention)), {
-        headers: {
-            "content-type": "application/json; charset=UTF-8",
-        },
-    });
+    return JSONResponse(createLike(env, mention))
 }
 
 async function doPe(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, "ぺぇ〜", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, "ぺぇ〜", []))
 }
 
 async function doNya(request: Request, env: Env): Promise<Response> {
@@ -881,21 +675,14 @@ async function doNya(request: Request, env: Env): Promise<Response> {
     }
     content += [" U￣￣U"].join("\n");
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, tags))
 }
 
 async function doGrave(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content = mention.content.trim();
     if (!content.match(/.の墓$/)) {
-        return new Response("");
+        return JSONResponse(null);
     }
     let result = ["　 ＿＿_", "　 |＼ 　＼", "　 |   |￣   ｜", ""].join("\n");
 
@@ -923,27 +710,13 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
         " ＼匚二 ˘ω˘  二]",
     ].join("\n");
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, result, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, result, tags))
 }
 
 async function doFumofumo(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content = "https://image.nostr.build/f8b39a30c03aa0fafdd74f7f6be3956696f4546ced43c28b0a6103c6ff3a3478.jpg"
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, []))
 }
 
 async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
@@ -967,16 +740,9 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
         content =
             "https://cdn.nostr.build/i/662dab3ac355c5b2e8682f10eef4102342599bf8f77b52e9c7a7a52153398bfd.jpg";
     } else {
-        return new Response("");
+        return JSONResponse(null);
     }
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, tags))
 }
 
 async function doWakaru(request: Request, env: Env): Promise<Response> {
@@ -985,14 +751,7 @@ async function doWakaru(request: Request, env: Env): Promise<Response> {
     const content = mention.content.trim().match(/^[わ分]かる[!！]*$/)
         ? "https://cdn.nostr.build/i/f795a1ba2802c5b397cb538d0068da2deb6e7510d8cfff877e5561a15d55199b.jpg"
         : "https://cdn.nostr.build/i/fd99d078ba96f85b5e3f754e1aeef5f42dbf3312b5a345c5f3ea6405ce2980a7.jpg";
-    return new Response(
-        JSON.stringify(createReplyWithTags(env, mention, content, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, content, tags))
 }
 
 const hakatano = new Map([
@@ -1021,67 +780,35 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
         .trim();
     for (const [k, v] of hakatano) {
         if (content === k) {
-            return new Response(
-                JSON.stringify(createReplyWithTags(env, mention, v, tags)),
-                {
-                    headers: {
-                        "content-type": "application/json; charset=UTF-8",
-                    },
-                },
-            );
+            return JSONResponse(createReplyWithTags(env, mention, v, tags))
         }
     }
-    return new Response("");
+    return JSONResponse(null);
 }
 
 async function doSUUMO(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content =
         "🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞'";
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, content, [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
 async function doCAT(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    if (mention.pubkey === NULLPOGA_NPUB) return new Response("");
+    if (mention.pubkey === NULLPOGA_NPUB) return JSONResponse(null);
     let res = await fetch("https://api.thecatapi.com/v1/images/search");
     const images: { [name: string]: any } = await res.json();
     const tags = [["t", "ぬっこ画像"]];
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(env, mention, `#ぬっこ画像\n${images[0].url}`, tags),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, `#ぬっこ画像\n${images[0].url}`, tags))
 }
 
 async function doDOG(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    if (mention.pubkey === NULLPOGA_NPUB) return new Response("");
+    if (mention.pubkey === NULLPOGA_NPUB) return JSONResponse(null);
     let res = await fetch("https://api.thedogapi.com/v1/images/search");
     const images: { [name: string]: any } = await res.json();
     const tags = [["t", "いっぬ画像"]];
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(env, mention, `#いっぬ画像\n${images[0].url}`, tags),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, `#いっぬ画像\n${images[0].url}`, tags))
 }
 
 async function doTranslate(request: Request, env: Env): Promise<Response> {
@@ -1106,16 +833,7 @@ async function doTranslate(request: Request, env: Env): Promise<Response> {
     }
     const response = await ai.run("@cf/meta/m2m100-1.2b", inputs);
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(env, mention, response.translated_text, tags),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, response.translated_text, tags))
 }
 
 async function doMetadata(request: Request, env: Env): Promise<Response> {
@@ -1125,14 +843,7 @@ async function doMetadata(request: Request, env: Env): Promise<Response> {
     const content = `${profile["display_name"].trim()
         } さんがプロフィールを更新しました`;
     metadata.kind = 1;
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, metadata, content, tags)),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, metadata, content, tags))
 }
 
 export interface Rate {
@@ -1146,23 +857,9 @@ async function doBtcHow(request: Request, env: Env): Promise<Response> {
     const url = "https://coincheck.com/ja/exchange/rates/search?pair=btc_jpy&time=" + new Date().toISOString()
     const res = await fetch(url);
     if (res.ok) {
-        return new Response(
-            JSON.stringify(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json() as Rate).rate} 円です`, [])),
-            {
-                headers: {
-                    "content-type": "application/json; charset=UTF-8",
-                },
-            },
-        )
+        return JSONResponse(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json() as Rate).rate} 円です`, []))
     }
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, "", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, "", []))
 }
 
 export interface Quotes {
@@ -1182,51 +879,19 @@ async function doJpyHow(request: Request, env: Env): Promise<Response> {
     const res = await fetch(url);
     if (res.ok) {
         const usdjpy: string = (await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid || '?';
-        return new Response(
-            JSON.stringify(createReplyWithTags(env, mention, `現在の円相場は1ドル ${usdjpy} 円です`, [])),
-            {
-                headers: {
-                    "content-type": "application/json; charset=UTF-8",
-                },
-            },
-        )
+        return JSONResponse(createReplyWithTags(env, mention, `現在の円相場は1ドル ${usdjpy} 円です`, []))
     }
-    return new Response(
-        JSON.stringify(createNoteWithTags(env, mention, "", [])),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, "", []))
 }
 
 async function doSleeply(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(
-            createReplyWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createReplyWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []))
 }
 
 async function doHit(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return new Response(
-        JSON.stringify(
-            createNoteWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []),
-        ),
-        {
-            headers: {
-                "content-type": "application/json; charset=UTF-8",
-            },
-        },
-    );
+    return JSONResponse(createNoteWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []));
 }
 
 export default {
