@@ -19,10 +19,15 @@ export interface Env {
     NULLPOGA_GA_TOKEN: string;
     NULLPOGA_VA_TOKEN: string;
     NULLPOGA_LOGINBONUS_TOKEN: string;
+    NULLPOGA_GENIMAGE_TOKEN: string;
+    NULLPOGA_QUESTION_TOKEN: string;
+    NULLPOGA_GENCODE_TOKEN: string;
     NULLPOGA_NSEC: string;
     ochinchinland: KVNamespace;
     nostr_relationship: KVNamespace;
+    nostr_profile: KVNamespace;
     AI: any;
+    gyazo: R2Bucket;
 }
 
 const NULLPOGA_NPUB =
@@ -194,6 +199,66 @@ async function doPage(_request: Request, _env: Env): Promise<Response> {
     });
 }
 
+interface Profile {
+    website: null | string;
+    nip05: null | string;
+    picture: null | string;
+    lud16: null | string;
+    display_name: null | string;
+    about: null | string;
+    name: null | string;
+}
+
+interface Metadata {
+    profile: Profile;
+    time: number;
+}
+
+async function getProfile(env: Env, pubkey: string): Promise<Profile | null> {
+    let metadata = JSON.parse(
+        (await env.nostr_profile.get(pubkey)) as string,
+    ) as Metadata | null;
+    if (metadata === null || Date.now() - metadata.time > 1800000) {
+        const relay = relayInit("wss://yabu.me");
+        await relay.connect();
+        const event = await relay.get({
+            kinds: [0],
+            authors: [pubkey],
+        });
+        if (event === null) {
+            return null;
+        }
+        const profile = JSON.parse(event.content) as Profile
+        metadata = {
+            profile: profile,
+            time: Date.now(),
+        };
+        await env.nostr_profile.put(pubkey, JSON.stringify(metadata));
+    }
+    return metadata.profile
+}
+
+async function doIcon(request: Request, env: Env): Promise<Response> {
+    const { pathname } = new URL(request.url);
+    const npub = pathname.split("/").pop() || '';
+    const pubkey = npub.startsWith("npub1")
+        ? nip19.decode(npub).data as string
+        : npub
+    const profile = await getProfile(env, pubkey);
+    console.log(JSON.stringify(profile))
+    return Response.redirect(profile?.picture || '');
+}
+
+async function doProfile(request: Request, env: Env): Promise<Response> {
+    const { pathname } = new URL(request.url);
+    const npub = pathname.split("/").pop() || '';
+    const pubkey = npub.startsWith("npub1")
+        ? nip19.decode(npub).data as string
+        : npub
+    const profile = await getProfile(env, pubkey);
+    return JSONResponse(profile);
+}
+
 type Relation = {
     follow: Event;
     mute: Event;
@@ -323,13 +388,13 @@ async function doUltrasoul(request: Request, env: Env): Promise<Response> {
 }
 
 async function doAngel(request: Request, env: Env): Promise<Response> {
-    const content = "＼ｴｰﾝｼﾞｪｰﾙ!🙌／'";
+    const content = "＼ｴｰﾝｼﾞｪｰﾙ!🙌／";
     const mention: Event = await request.json();
     return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
 async function doHi(request: Request, env: Env): Promise<Response> {
-    const content = "＼ﾊｰｲ!🙌／'";
+    const content = "＼ﾊｰｲ!🙌／";
     const mention: Event = await request.json();
     return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
@@ -473,6 +538,47 @@ async function doOnlyYou(request: Request, env: Env): Promise<Response> {
     return JSONResponse(createReplyWithTags(env, mention, content, tags))
 }
 
+async function doCheck(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const contents = [
+        "生きとるぞ",
+        "生きてるよ",
+        "生きてるわよ",
+        "生きてるにゃん",
+        "生きとる言うてるやろ",
+        "誰かに聞け",
+    ];
+    const content = contents[Math.floor(Math.random() * contents.length)];
+    return JSONResponse(createNoteWithTags(env, mention, content, []))
+}
+
+async function doKamakuraAlive(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+
+    const last = new Date(((await fetch("https://api.github.com/users/akiomik/events", { headers: { "user-agent": "cloudflare-nostr-nullpoga" } }).then(
+        (resp) => resp.json()
+    )) as any[])[0].created_at as string);
+
+    const now = new Date(
+        Date.now() + ((new Date().getTimezoneOffset() + (9 * 60)) * 60 * 1000),
+    );
+
+    const hours = Math.floor((now.getTime() - last.getTime()) / 1000 / 60 / 60)
+    if (hours < 24) {
+        return JSONResponse(createReplyWithTags(env, mention, `${hours}時間前に GitHub で活動あったよ`, []))
+    }
+    const days = Math.floor(hours / 24)
+    return JSONResponse(createReplyWithTags(env, mention, `${days}日前に GitHub で活動あったよ`, []))
+}
+
+async function doDajare(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    let res = await fetch("https://dajare-api.compile-error.net");
+    const dajare: { [name: string]: string } = await res.json();
+    const tags = [["t", "dajare"]];
+    return JSONResponse(createReplyWithTags(env, mention, `${dajare.text} #dajare`, tags))
+}
+
 async function doNullpoGa(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GA_TOKEN)) {
         return notAuthenticated(request, env);
@@ -522,7 +628,7 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     return JSONResponse(createReplyWithTags(env, mention, "なっとるやろがい!!", []))
 }
 
-const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡'";
+const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡";
 //const pai = '東南西北白発中一二三四五六七八九１２３４５６７８９①②③④⑤⑥⑦⑧⑨'
 
 async function doMahjongPai(request: Request, env: Env): Promise<Response> {
@@ -558,7 +664,7 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
 async function doNagashite(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const m = mention.content.match(/流して(\s+.*)$/);
-    const wave = m ? m[1].trim() : "🌊🌊🌊🌊🌊🌊🌊🌊'";
+    const wave = m ? m[1].trim() : "🌊🌊🌊🌊🌊🌊🌊🌊";
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
     return JSONResponse(createNoteWithTags(env, mention, (wave + "\n").repeat(12), tags))
 }
@@ -789,7 +895,7 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
 async function doSUUMO(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content =
-        "🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞'";
+        "🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞";
     return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
@@ -846,18 +952,15 @@ async function doMetadata(request: Request, env: Env): Promise<Response> {
     return JSONResponse(createNoteWithTags(env, metadata, content, tags))
 }
 
-export interface Rate {
-    pair: string;
-    time: string;
-    rate: string;
-}
-
 async function doBtcHow(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    const url = "https://coincheck.com/ja/exchange/rates/search?pair=btc_jpy&time=" + new Date().toISOString()
+    const url = "https://blockchain.info/ticker"
     const res = await fetch(url);
     if (res.ok) {
-        return JSONResponse(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで ${(await res.json() as Rate).rate} 円です`, []))
+        const result = (await res.json() as any)
+        const jpy = result?.JPY?.last
+        const usd = result?.USD?.last
+        return JSONResponse(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで${jpy}円($${usd})です`, []))
     }
     return JSONResponse(createNoteWithTags(env, mention, "", []))
 }
@@ -884,9 +987,109 @@ async function doJpyHow(request: Request, env: Env): Promise<Response> {
     return JSONResponse(createNoteWithTags(env, mention, "", []))
 }
 
+const models: any[] = [
+    "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+    "@cf/bytedance/stable-diffusion-xl-lightning",
+    "@cf/lykon/dreamshaper-8-lcm",
+];
+
+async function doGenImage(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_GENIMAGE_TOKEN)) {
+        return notAuthenticated(request, env);
+    }
+    const mention: Event = await request.json();
+    const m = mention.content.match(/画像生成([0-9]*)\s+(.+)$/) || [];
+    const index = Number(m && m.length > 1 && m[1].length > 0 ? m[1] : "1");
+    if (index < 1 || index > models.length) {
+        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
+    }
+    const content = m ? m[2] : "";
+    if (content === '') return JSONResponse(null);
+    try {
+        const ai = new Ai(env.AI);
+        const model = models[index - 1];
+        const contents = await ai.run(model, {
+            prompt: content,
+            num_steps: 20,
+        });
+
+        const bytes = new Uint8Array(await crypto.subtle.digest(
+            {
+                name: 'SHA-1',
+            },
+            contents,
+        ));
+        let hash = '';
+        for (let i = 0; i < 8; i++) {
+            let value = bytes[i].toString(16);
+            hash += (value.length === 1 ? '0' + value : value);
+        }
+        const name = hash + '.png';
+        const headers = new Headers();
+        headers.set('content-type', 'image/png');
+        await env.gyazo.put(name, contents, {
+            httpMetadata: headers,
+            customMetadata: {
+                'created-by': 'nullpoga',
+                'prompt': content,
+            },
+        })
+        const item = "#ぬるぽが生成画像\n" + 'https://gyazo.compile-error.net/' + name;
+        const tags = [["t", "ぬるぽが生成画像"]];
+        return JSONResponse(createReplyWithTags(env, mention, item, tags))
+    } catch (e) {
+        console.log(e)
+        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+    }
+}
+
+async function doGenCode(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_GENCODE_TOKEN)) {
+        return notAuthenticated(request, env);
+    }
+    const mention: Event = await request.json();
+    const m = mention.content.match(/コード(かいて|書いて)\s+(.+)$/) || [];
+    const content = m ? m[2] : "";
+    if (content === '') return JSONResponse(null);
+    try {
+        const ai = new Ai(env.AI);
+        const model = "@hf/thebloke/deepseek-coder-6.7b-instruct-awq"
+        const contents = await ai.run(model, {
+            messages: [
+                { role: 'system', content: content }
+            ]
+        });
+        return JSONResponse(createReplyWithTags(env, mention, contents.response, []))
+    } catch (e) {
+        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+    }
+}
+
+async function doQuestion(request: Request, env: Env): Promise<Response> {
+    if (!bearerAuthentication(request, env.NULLPOGA_QUESTION_TOKEN)) {
+        return notAuthenticated(request, env);
+    }
+    const mention: Event = await request.json();
+    const m = mention.content.match(/(おしえて|教えて)\s+(.+[?？])$/) || [];
+    const content = m ? m[2] : "";
+    if (content === '') return JSONResponse(null);
+    try {
+        const ai = new Ai(env.AI);
+        const model = "@cf/meta/llama-2-7b-chat-int8"
+        const contents = await ai.run(model, {
+            messages: [
+                { role: 'user', content: content }
+            ]
+        });
+        return JSONResponse(createReplyWithTags(env, mention, contents.response, []))
+    } catch (e) {
+        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+    }
+}
+
 async function doSleeply(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createReplyWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []))
+    return JSONResponse(createReplyWithTags(env, mention, "(`･д･⊂彡☆)) Д´)) ﾊﾟｧﾝ", []))
 }
 
 async function doHit(request: Request, env: Env): Promise<Response> {
@@ -923,6 +1126,10 @@ export default {
                     return doUpdate(request, env);
                 case "relationship":
                     return doRelationsihp(request, env);
+                case "profile":
+                    return doProfile(request, env);
+                case "icon":
+                    return doIcon(request, env);
                 case "":
                     return doPage(request, env);
             }
@@ -1000,6 +1207,18 @@ export default {
                     return doBtcHow(request, env);
                 case "jpyhow":
                     return doJpyHow(request, env);
+                case "genimage":
+                    return doGenImage(request, env);
+                case "gencode":
+                    return doGenCode(request, env);
+                case "question":
+                    return doQuestion(request, env);
+                case "check":
+                    return doCheck(request, env);
+                case "kamakuraalive":
+                    return doKamakuraAlive(request, env);
+                case "dajare":
+                    return doDajare(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
