@@ -7,6 +7,7 @@ import {
     nip19,
     relayInit,
     signEvent,
+    SimplePool,
 } from "nostr-tools";
 
 import { Ai } from "@cloudflare/ai";
@@ -118,13 +119,15 @@ function createReplyWithTags(
     mention: Event,
     message: string,
     tags: string[][],
+    notice: boolean = true,
 ): Event {
     const decoded = nip19.decode(env.NULLPOGA_NSEC);
     const sk = decoded.data as string;
     const pk = getPublicKey(sk);
     if (mention.pubkey === pk) throw new Error("Self reply not acceptable");
     const tt = [];
-    tt.push(["e", mention.id], ["p", mention.pubkey]);
+    if (notice) tt.push(["e", mention.id], ["p", mention.pubkey]);
+    else tt.push(["e", mention.id]);
     if (mention.kind === 42) {
         for (let tag of mention.tags.filter((x: any[]) => x[0] === "e")) {
             tt.push(tag);
@@ -265,9 +268,10 @@ type Relation = {
     time: number;
 };
 
-async function doRelationsihp(request: Request, env: Env): Promise<Response> {
+async function doRelationship(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
     const pathArray = pathname.split("/");
+    console.log(pathArray)
     let relation = JSON.parse(
         (await env.nostr_relationship.get(pathArray[2])) as string,
     ) as Relation | null;
@@ -469,6 +473,21 @@ const bookmarks: bookmark[] = [
         site:
             "Nostr (1) https://adventar.org/calendars/8794\nNostr (2) https://adventar.org/calendars/8880\nBlueSky https://adventar.org/calendars/9443",
     },
+    {
+        pattern: /^いちなかさん$/,
+        site:
+            "nostr:npub1ncvpth7qzqjj59c837gq2vmthsz874gad4akg4zs227wmhkt3g4q0aqa6p",
+    },
+    {
+        pattern: /^発火.*垢?$/,
+        site:
+            "nostr:npub1zqdnpm5gcfap8hngha7gcp3k363786phvs2etsvxw4nh6x9ydfzsuyk6mn",
+    },
+    {
+        pattern: /^今日は何の日$/,
+        site:
+            "nostr:npub1q6ptkv6tlljf58ndalf9pc5vvhqhxl50xwwnjnjqef4dlunusjmqyp7qmf",
+    },
 ];
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
@@ -535,7 +554,7 @@ async function doOnlyYou(request: Request, env: Env): Promise<Response> {
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, "$1でるのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, "$1てんのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, "$1でんのお前だけ");
-    return JSONResponse(createReplyWithTags(env, mention, content, tags))
+    return JSONResponse(createReplyWithTags(env, mention, content, tags, false))
 }
 
 async function doCheck(request: Request, env: Env): Promise<Response> {
@@ -577,6 +596,81 @@ async function doDajare(request: Request, env: Env): Promise<Response> {
     const dajare: { [name: string]: string } = await res.json();
     const tags = [["t", "dajare"]];
     return JSONResponse(createReplyWithTags(env, mention, `${dajare.text} #dajare`, tags))
+}
+
+const oppapi = new Map([
+    [/^おっっ+ぱぴぃ/, 'おっぱぴぃ'],
+    [/ぺぺ*ぇぇ+/, 'ぺぇ'],
+    [/ぽわわ+/, 'ぽわ'],
+    [/あわわ+ゆき/, 'あわゆき'],
+    [/こじじ+ら/, 'こじら'],
+    [/mattt+n/, 'mattn'],
+    [/おっっ+ぱい/, 'おっぱい'],
+]);
+
+async function doOppapi(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    for (const o of oppapi) {
+        if (o[0].test(mention.content)) {
+            return JSONResponse(createReplyWithTags(env, mention, `${mention.content.split('').length - o[1].length}${o[1]}です`, []))
+        }
+    }
+}
+
+async function doFirstPost(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+
+    const pool = new SimplePool()
+    const relays = ['wss://yabu.me', 'wss://relay-jp.nostr.wirednet.jp']
+
+    let left = 0, right = Math.floor(Date.now() / 1000);
+
+    let found: Event | null = null;
+    while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const event = await pool.get(relays, {
+            kinds: [1],
+            authors: [mention.pubkey],
+            limit: 1,
+            until: mid,
+        });
+        if (event == null || event.created_at > mid) {
+            left = mid + 1;
+        } else if (event.created_at < mid) {
+            right = mid - 1;
+        } else {
+            found = event;
+            break;
+        }
+    }
+
+    return JSONResponse(createReplyWithTags(env, mention, `これです\nnostr:${nip19.noteEncode('' + found?.id)}`, []))
+}
+
+async function doCheckHansha(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    let content = "" + mention.content.replace(/[はも](反社ですか|反社なの|反社)[?？]$/, "").trim();
+    return JSONResponse(createReplyWithTags(env, mention, `${content}は反社だよ`, []))
+}
+
+async function doLike(request: Request, env: Env): Promise<Response> {
+    let mention: Event = await request.json();
+    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+    const sk = decoded.data as string;
+    const pk = getPublicKey(sk);
+    if (mention.pubkey === pk) return JSONResponse(null);
+    const contents = ["ｱｧ−", "ｱｧｧ!", "ｷﾓﾁｰｰｰｯ!", "ｿｺｰｯ!", "ﾓｯﾄｰｯ!", "ﾊｧﾊｧ"]
+    const content = contents[Math.floor(Math.random() * contents.length)];
+    mention = {
+        kind: 1,
+        tags: [],
+        pubkey: "",
+        id: "",
+        sig: "",
+        content: "",
+        created_at: Math.floor(Date.now() / 1000),
+    } as Event;
+    return JSONResponse(createNoteWithTags(env, mention, content, []))
 }
 
 async function doNullpoGa(request: Request, env: Env): Promise<Response> {
@@ -825,6 +919,12 @@ async function doFumofumo(request: Request, env: Env): Promise<Response> {
     return JSONResponse(createReplyWithTags(env, mention, content, []))
 }
 
+async function doMofumofu(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const content = "https://image.nostr.build/7f8ba8f3b9fb361982a0170e3be77a51e54f51850a9abbcafac30ac2586868f6.jpg"
+    return JSONResponse(createReplyWithTags(env, mention, content, []))
+}
+
 async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
@@ -958,8 +1058,8 @@ async function doBtcHow(request: Request, env: Env): Promise<Response> {
     const res = await fetch(url);
     if (res.ok) {
         const result = (await res.json() as any)
-        const jpy = result?.JPY?.last
-        const usd = result?.USD?.last
+        const jpy = result?.JPY?.last?.toLocaleString()
+        const usd = result?.USD?.last?.toLocaleString()
         return JSONResponse(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで${jpy}円($${usd})です`, []))
     }
     return JSONResponse(createNoteWithTags(env, mention, "", []))
@@ -991,6 +1091,8 @@ const models: any[] = [
     "@cf/stabilityai/stable-diffusion-xl-base-1.0",
     "@cf/bytedance/stable-diffusion-xl-lightning",
     "@cf/lykon/dreamshaper-8-lcm",
+    "@stable-diffusion-v1-5-inpainting",
+    "@cf/runwayml/stable-diffusion-v1-5-inpainting",
 ];
 
 async function doGenImage(request: Request, env: Env): Promise<Response> {
@@ -1115,6 +1217,7 @@ export default {
         console.log(`${request.method}: ${request.url} `);
 
         if (request.method === "GET") {
+            console.log("foo")
             switch (pathArray[1]) {
                 case "nullpo":
                     return doNullpo(request, env);
@@ -1125,7 +1228,7 @@ export default {
                 case "update":
                     return doUpdate(request, env);
                 case "relationship":
-                    return doRelationsihp(request, env);
+                    return doRelationship(request, env);
                 case "profile":
                     return doProfile(request, env);
                 case "icon":
@@ -1185,6 +1288,8 @@ export default {
                     return doOchinchinLand(request, env);
                 case "fumofumo":
                     return doFumofumo(request, env);
+                case "mofumofu":
+                    return doMofumofu(request, env);
                 case "wakaru":
                     return doWakaru(request, env);
                 case "hakatano":
@@ -1219,6 +1324,14 @@ export default {
                     return doKamakuraAlive(request, env);
                 case "dajare":
                     return doDajare(request, env);
+                case "oppapi":
+                    return doOppapi(request, env);
+                case "first-post":
+                    return doFirstPost(request, env);
+                case "check-hansha":
+                    return doCheckHansha(request, env);
+                case "like":
+                    return doLike(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
