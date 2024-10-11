@@ -12,6 +12,8 @@ import {
 
 import { Ai } from "@cloudflare/ai";
 
+const cache = caches.default;
+
 let suddendeath = require("suddendeath");
 let eaw = require("eastasianwidth");
 let runes = require("runes");
@@ -253,13 +255,18 @@ async function doIcon(request: Request, env: Env): Promise<Response> {
 }
 
 async function doProfile(request: Request, env: Env): Promise<Response> {
+    const cached = await cache.match(request);
+    if (cached !== undefined) return cached;
+
     const { pathname } = new URL(request.url);
     const npub = pathname.split("/").pop() || '';
     const pubkey = npub.startsWith("npub1")
         ? nip19.decode(npub).data as string
         : npub
     const profile = await getProfile(env, pubkey);
-    return JSONResponse(profile);
+    const response = JSONResponse(profile);
+    await cache.put(request, response.clone());
+    return response;
 }
 
 type Relation = {
@@ -269,6 +276,9 @@ type Relation = {
 };
 
 async function doRelationship(request: Request, env: Env): Promise<Response> {
+    const cached = await cache.match(request);
+    if (cached !== undefined) return cached;
+
     const { pathname } = new URL(request.url);
     const pathArray = pathname.split("/");
     console.log(pathArray)
@@ -303,8 +313,12 @@ async function doRelationship(request: Request, env: Env): Promise<Response> {
         };
         await env.nostr_relationship.put(pathArray[2], JSON.stringify(relation));
     }
+    let response: Response
+
     if (pathArray.length === 3) {
-        return JSONResponse(relation);
+        response = JSONResponse(relation);
+        await cache.put(request, response.clone());
+        return response;
     }
     if (pathArray.length === 5) {
         const sk = pathArray[3].startsWith("npub1")
@@ -315,12 +329,16 @@ async function doRelationship(request: Request, env: Env): Promise<Response> {
                 const followed = relation.follow.tags.filter((x: any[]) =>
                     x[0] === "p" && x[1] === sk
                 ).length > 0;
-                return JSONResponse(followed);
+                response = JSONResponse(followed);
+                await cache.put(request, response.clone());
+                return response;
             case "mute":
                 const muted = relation.mute.tags.filter((x: any[]) =>
                     x[0] === "p" && x[1] === sk
                 ).length > 0;
-                return JSONResponse(muted)
+                response = JSONResponse(muted);
+                await cache.put(request, response.clone());
+                return response;
         }
     }
     return notFound(request, env);
@@ -474,9 +492,14 @@ const bookmarks: bookmark[] = [
             "Nostr (1) https://adventar.org/calendars/8794\nNostr (2) https://adventar.org/calendars/8880\nBlueSky https://adventar.org/calendars/9443",
     },
     {
-        pattern: /^いちなかさん$/,
+        pattern: /^(いちなか|イチナカ|ｲﾁﾅｶ|ichinaka)さん$/,
         site:
             "nostr:npub1ncvpth7qzqjj59c837gq2vmthsz874gad4akg4zs227wmhkt3g4q0aqa6p",
+    },
+    {
+        pattern: /^(シャチク|ｼｬﾁｸ|社畜)さん$/,
+        site:
+            "nostr:npub1m78s5eqv8l7snc5nnxdvlgue6pt5epgplndtem99quhwyptas7jss2qx53",
     },
     {
         pattern: /^発火.*垢?$/,
@@ -487,6 +510,11 @@ const bookmarks: bookmark[] = [
         pattern: /^今日は何の日$/,
         site:
             "nostr:npub1q6ptkv6tlljf58ndalf9pc5vvhqhxl50xwwnjnjqef4dlunusjmqyp7qmf",
+    },
+    {
+        pattern: /^(のすjump|のすじゃんぷ|のすジャンプ|ノスジャンプ)$/,
+        site:
+            "https://showhyuga.pages.dev/utility/nos_jump",
     },
 ];
 
@@ -513,7 +541,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
         const res = await fetch(url);
         if (res.ok) {
             const m = new Map<number, string>();
-            (await res.text()).split(/\n## Event Kinds/)[1].split(/\n\n/)[0].split(/\n/).forEach(x => {
+            (await res.text()).split(/\n## Event Kinds/)[1].split(/\n\n/)[1].split(/\n/).forEach(x => {
                 const tok = x.split(/\|/)
                 if (tok.length < 4) return
                 const kind = tok[1].replace(/[`` ]/g, "") || ""
