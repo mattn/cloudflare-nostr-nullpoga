@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2023-09-22"
 
 kv_namespaces = [
-  { binding = "ochinchinland", id = "3346c3ec6c9e4c4a99d3e47aee777ee7" },
-  { binding = "nostr_relationship", id = "1552b3d9ec494e029ea605c9ef9da61e" },
-  { binding = "nostr_profile", id = "15418c1d70594a19ad7ca34f1f650ab5" }
+  { binding = "ochinchinland", id = "3346c3ec6c9e4c4a99d3e47aee777ee7", preview_id = "399cacd3050e4ff6992530768d2e22d8" },
+  { binding = "nostr_relationship", id = "1552b3d9ec494e029ea605c9ef9da61e", preview_id = "006197fc30074c78aeb01c61758ebee2" },
+  { binding = "nostr_profile", id = "15418c1d70594a19ad7ca34f1f650ab5", preview_id = "0edcc1678c5c4e72b47146a9ada35f5b" }
 ]
 
 [ai]
