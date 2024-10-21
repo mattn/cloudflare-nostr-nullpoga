@@ -26,6 +26,7 @@ export interface Env {
     NULLPOGA_QUESTION_TOKEN: string;
     NULLPOGA_GENCODE_TOKEN: string;
     NULLPOGA_NSEC: string;
+    POLICE5_NSEC: string;
     ochinchinland: KVNamespace;
     nostr_relationship: KVNamespace;
     nostr_profile: KVNamespace;
@@ -97,8 +98,8 @@ function bearerAuthentication(request: Request, secret: string) {
     return scheme === "Bearer" && encoded === secret;
 }
 
-function createLike(env: Env, mention: Event): Event {
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+function createLike(nsec: string, mention: Event): Event {
+    const decoded = nip19.decode(nsec);
     const sk = decoded.data as string;
     const pk = getPublicKey(sk);
     const created_at = mention.created_at + 1;
@@ -117,13 +118,13 @@ function createLike(env: Env, mention: Event): Event {
 }
 
 function createReplyWithTags(
-    env: Env,
+    nsec: string,
     mention: Event,
     message: string,
     tags: string[][],
     notice: boolean = true,
 ): Event {
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+    const decoded = nip19.decode(nsec);
     const sk = decoded.data as string;
     const pk = getPublicKey(sk);
     if (mention.pubkey === pk) throw new Error("Self reply not acceptable");
@@ -154,12 +155,12 @@ function createReplyWithTags(
 }
 
 function createNoteWithTags(
-    env: Env,
+    nsec: string,
     mention: Event,
     message: string,
     tags: string[][],
 ): Event {
-    const decoded = nip19.decode(env.NULLPOGA_NSEC);
+    const decoded = nip19.decode(nsec);
     const sk = decoded.data as string;
     const pk = getPublicKey(sk);
     const tt = [];
@@ -349,7 +350,7 @@ async function doNullpo(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env);
     }
     const mention: Event = await request.json();
-    return JSONResponse(createNoteWithTags(env, mention, "ぬるぽ", []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, "ぬるぽ", []))
 }
 
 async function doClock(_request: Request, env: Env): Promise<Response> {
@@ -368,7 +369,7 @@ async function doClock(_request: Request, env: Env): Promise<Response> {
         content: "",
         created_at: Math.floor(Date.now() / 1000),
     } as Event;
-    return JSONResponse(createNoteWithTags(env, mention, message, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, message, []))
 }
 
 async function doOchinchinLandStatus(
@@ -381,7 +382,7 @@ async function doOchinchinLandStatus(
 
 async function doSuitou(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createReplyWithTags(env, mention, "えらい！", []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "えらい！", []))
 }
 
 async function doIgyo(request: Request, env: Env): Promise<Response> {
@@ -391,13 +392,13 @@ async function doIgyo(request: Request, env: Env): Promise<Response> {
         "igyo",
         "https://i.gyazo.com/6ca054b84392b4b1bd0038d305f72b64.png",
     ]];
-    return JSONResponse(createReplyWithTags(env, mention, ":igyo:", tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, ":igyo:", tags))
 }
 
 async function doLetterpack(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     return JSONResponse(createReplyWithTags(
-        env,
+        env.NULLPOGA_NSEC,
         mention,
         "https://i.gyazo.com/d3d5ab0007253e060482e52e5734d402.png",
         [],
@@ -406,19 +407,19 @@ async function doLetterpack(request: Request, env: Env): Promise<Response> {
 
 async function doUltrasoul(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createReplyWithTags(env, mention, "ｳﾙﾄﾗｿｩ!", []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "ｳﾙﾄﾗｿｩ!", []))
 }
 
 async function doAngel(request: Request, env: Env): Promise<Response> {
     const content = "＼ｴｰﾝｼﾞｪｰﾙ!🙌／";
     const mention: Event = await request.json();
-    return JSONResponse(createNoteWithTags(env, mention, content, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doHi(request: Request, env: Env): Promise<Response> {
     const content = "＼ﾊｰｲ!🙌／";
     const mention: Event = await request.json();
-    return JSONResponse(createNoteWithTags(env, mention, content, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 export interface bookmark {
@@ -523,7 +524,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
     let content = "" + mention.content.replace(/どこ[?？]*$/, "").trim();
     for (const b of bookmarks) {
         if (content.match(b.pattern)) {
-            return JSONResponse(createReplyWithTags(env, mention, b.site, []))
+            return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, b.site, []))
         }
     }
     const mNIP = content.match(/^NIP-?([0-9]+)/i)
@@ -531,9 +532,9 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
         const url = "https://github.com/nostr-protocol/nips/blob/master/" + mNIP[1] + ".md";
         const res = await fetch(url);
         if (res.ok) {
-            return JSONResponse(createReplyWithTags(env, mention, url, []))
+            return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, url, []))
         }
-        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "そんなん無い", []))
     }
     const mKIND = content.match(/^KIND ([0-9]+)/i)
     if (mKIND) {
@@ -553,10 +554,10 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             const kind = Number(mKIND[1])
             if (m.has(kind)) {
                 const url = "https://github.com/nostr-protocol/nips/blob/master/" + m.get(kind)
-                return JSONResponse(createReplyWithTags(env, mention, url, []))
+                return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, url, []))
             }
         }
-        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "そんなん無い", []))
     }
     return JSONResponse(null);
 }
@@ -567,7 +568,7 @@ async function doGoogle(request: Request, env: Env): Promise<Response> {
         mention.content.match(/^検索:(.+)$/) || [];
     const contents = "https://www.google.com/search?q=" +
         encodeURIComponent((m ? m[1] : "").trim());
-    return JSONResponse(createReplyWithTags(env, mention, contents, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, contents, []))
 }
 
 async function doOnlyYou(request: Request, env: Env): Promise<Response> {
@@ -582,7 +583,7 @@ async function doOnlyYou(request: Request, env: Env): Promise<Response> {
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でない[?？!！.]*$/s, "$1でるのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)てへん[?？!！.]*$/s, "$1てんのお前だけ")
         .replace(/^みんな(?:\s*)(.*)(?:\s*)でへん[?？!！.]*$/s, "$1でんのお前だけ");
-    return JSONResponse(createReplyWithTags(env, mention, content, tags, false))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, tags, false))
 }
 
 async function doCheck(request: Request, env: Env): Promise<Response> {
@@ -596,7 +597,7 @@ async function doCheck(request: Request, env: Env): Promise<Response> {
         "誰かに聞け",
     ];
     const content = contents[Math.floor(Math.random() * contents.length)];
-    return JSONResponse(createNoteWithTags(env, mention, content, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doKamakuraAlive(request: Request, env: Env): Promise<Response> {
@@ -612,10 +613,10 @@ async function doKamakuraAlive(request: Request, env: Env): Promise<Response> {
 
     const hours = Math.floor((now.getTime() - last.getTime()) / 1000 / 60 / 60)
     if (hours < 24) {
-        return JSONResponse(createReplyWithTags(env, mention, `${hours}時間前に GitHub で活動あったよ`, []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${hours}時間前に GitHub で活動あったよ`, []))
     }
     const days = Math.floor(hours / 24)
-    return JSONResponse(createReplyWithTags(env, mention, `${days}日前に GitHub で活動あったよ`, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${days}日前に GitHub で活動あったよ`, []))
 }
 
 async function doDajare(request: Request, env: Env): Promise<Response> {
@@ -623,7 +624,7 @@ async function doDajare(request: Request, env: Env): Promise<Response> {
     let res = await fetch("https://dajare-api.compile-error.net");
     const dajare: { [name: string]: string } = await res.json();
     const tags = [["t", "dajare"]];
-    return JSONResponse(createReplyWithTags(env, mention, `${dajare.text} #dajare`, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${dajare.text} #dajare`, tags))
 }
 
 const oppapi = new Map([
@@ -640,9 +641,10 @@ async function doOppapi(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     for (const o of oppapi) {
         if (o[0].test(mention.content)) {
-            return JSONResponse(createReplyWithTags(env, mention, `${mention.content.split('').length - o[1].length}${o[1]}です`, []))
+            return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${mention.content.split('').length - o[1].length}${o[1]}です`, []))
         }
     }
+    return JSONResponse(null);
 }
 
 async function doFirstPost(request: Request, env: Env): Promise<Response> {
@@ -672,13 +674,27 @@ async function doFirstPost(request: Request, env: Env): Promise<Response> {
         }
     }
 
-    return JSONResponse(createReplyWithTags(env, mention, `これです\nnostr:${nip19.noteEncode('' + found?.id)}`, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `これです\nnostr:${nip19.noteEncode('' + found?.id)}`, []))
 }
 
 async function doCheckHansha(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     let content = "" + mention.content.replace(/[はも](反社ですか|反社なの|反社)[?？]$/, "").trim();
-    return JSONResponse(createReplyWithTags(env, mention, `${content}は反社だよ`, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${content}は反社だよ`, []))
+}
+
+async function doPolice5000000000000000(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const x = mention.content;
+    for (const s of x?.split(/(\d+)/)) {
+        if (!s.match(/^50{10,20}$/)) continue;
+        if (s.length < 16) {
+            return JSONResponse(createReplyWithTags(env.POLICE5_NSEC, mention, "👮 5000000000000000警察です。0 が足りません。", []));
+        } else if (s.length > 16) {
+            return JSONResponse(createReplyWithTags(env.POLICE5_NSEC, mention, "👮 5000000000000000警察です。0 が多すぎます。", []));
+        }
+    }
+    return JSONResponse(null)
 }
 
 async function doLike(request: Request, env: Env): Promise<Response> {
@@ -698,7 +714,7 @@ async function doLike(request: Request, env: Env): Promise<Response> {
         content: "",
         created_at: Math.floor(Date.now() / 1000),
     } as Event;
-    return JSONResponse(createNoteWithTags(env, mention, content, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doNullpoGa(request: Request, env: Env): Promise<Response> {
@@ -718,7 +734,7 @@ async function doNullpoGa(request: Request, env: Env): Promise<Response> {
         "ｶﾞｯ",
     ).replaceAll("ーぽ", "ｰｶﾞｯ").replaceAll("ー", "ｰ").replaceAll("っ", "ｯ")
         .replaceAll(/ｯ+/g, "ｯ").replaceAll("ぽ", "");
-    return JSONResponse(createReplyWithTags(env, mention, content, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
@@ -738,7 +754,7 @@ async function doTsurupoVa(request: Request, env: Env): Promise<Response> {
         "ｳﾞｧｯ",
     ).replaceAll("ーぽ", "ｰｳﾞｧｯ").replaceAll("ー", "ｰ").replaceAll("っ", "ｯ")
         .replaceAll(/ｯ+/g, "ｯ").replaceAll("ぽ", "");
-    return JSONResponse(createReplyWithTags(env, mention, content, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
@@ -747,7 +763,7 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     if (!content.match(/そうはならんやろ/)) {
         return JSONResponse(null);
     }
-    return JSONResponse(createReplyWithTags(env, mention, "なっとるやろがい!!", []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "なっとるやろがい!!", []))
 }
 
 const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡";
@@ -759,7 +775,7 @@ async function doMahjongPai(request: Request, env: Env): Promise<Response> {
         .map((v) => ({ v, sort: Math.random() }))
         .sort((a, b) => a.sort - b.sort).map(({ v }) => v)
         .slice(0, 14).sort().join("");
-    return JSONResponse(createReplyWithTags(env, mention, content, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doSuddendeanth(request: Request, env: Env): Promise<Response> {
@@ -767,7 +783,7 @@ async function doSuddendeanth(request: Request, env: Env): Promise<Response> {
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
     return JSONResponse(
         createReplyWithTags(
-            env,
+            env.NULLPOGA_NSEC,
             mention,
             suddendeath(mention.content, true),
             tags,
@@ -780,7 +796,7 @@ async function doLoginbonus(request: Request, env: Env): Promise<Response> {
         return notAuthenticated(request, env);
     }
     const mention: Event = await request.json();
-    return JSONResponse(createReplyWithTags(env, mention, "ありません", []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "ありません", []))
 }
 
 async function doNagashite(request: Request, env: Env): Promise<Response> {
@@ -788,7 +804,7 @@ async function doNagashite(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/流して(\s+.*)$/);
     const wave = m ? m[1].trim() : "🌊🌊🌊🌊🌊🌊🌊🌊";
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return JSONResponse(createNoteWithTags(env, mention, (wave + "\n").repeat(12), tags))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, (wave + "\n").repeat(12), tags))
 }
 
 let lokuyowImages: any[] = [];
@@ -804,7 +820,7 @@ async function doLokuyow(request: Request, env: Env): Promise<Response> {
         lokuyowImages[Math.floor(Math.random() * lokuyowImages.length)].src;
     const mention: Event = await request.json();
     const tags = [["t", "ロクヨウ画像"]];
-    return JSONResponse(createReplyWithTags(env, mention, item, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, item, tags))
 }
 
 let shioImages: any[] = [];
@@ -828,7 +844,7 @@ async function doShio(request: Request, env: Env): Promise<Response> {
         : Math.floor(Math.random() * shioImages.length);
     const item = "#しお画像\n" + shioImages[index % shioImages.length].src;
     const tags = [["t", "しお画像"]];
-    return JSONResponse(createReplyWithTags(env, mention, item, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, item, tags))
 }
 
 function levenshtein(a: string, b: string): number {
@@ -868,17 +884,17 @@ async function doDistance(request: Request, env: Env): Promise<Response> {
     if (!m) m = content.match(/^「(\S+)」と「(\S+)」の文字列距離$/);
     if (!m) m = content.match(/^(\S+)\s*と\s*(\S+)\s*の文字列距離$/);
     if (!m) return JSONResponse(null);
-    return JSONResponse(createReplyWithTags(env, mention, `${levenshtein(m[1], m[2])}です`, []));
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${levenshtein(m[1], m[2])} です`, []));
 }
 
 async function doOppai(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createLike(env, mention))
+    return JSONResponse(createLike(env.NULLPOGA_NSEC, mention))
 }
 
 async function doPe(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createNoteWithTags(env, mention, "ぺぇ〜", []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, "ぺぇ〜", []))
 }
 
 async function doNya(request: Request, env: Env): Promise<Response> {
@@ -903,7 +919,7 @@ async function doNya(request: Request, env: Env): Promise<Response> {
     }
     content += [" U￣￣U"].join("\n");
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return JSONResponse(createReplyWithTags(env, mention, content, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, tags))
 }
 
 async function doGrave(request: Request, env: Env): Promise<Response> {
@@ -938,19 +954,19 @@ async function doGrave(request: Request, env: Env): Promise<Response> {
         " ＼匚二 ˘ω˘  二]",
     ].join("\n");
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return JSONResponse(createReplyWithTags(env, mention, result, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, result, tags))
 }
 
 async function doFumofumo(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content = "https://image.nostr.build/f8b39a30c03aa0fafdd74f7f6be3956696f4546ced43c28b0a6103c6ff3a3478.jpg"
-    return JSONResponse(createReplyWithTags(env, mention, content, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doMofumofu(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content = "https://image.nostr.build/7f8ba8f3b9fb361982a0170e3be77a51e54f51850a9abbcafac30ac2586868f6.jpg"
-    return JSONResponse(createReplyWithTags(env, mention, content, []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
@@ -976,7 +992,7 @@ async function doOchinchinLand(request: Request, env: Env): Promise<Response> {
     } else {
         return JSONResponse(null);
     }
-    return JSONResponse(createReplyWithTags(env, mention, content, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, tags))
 }
 
 async function doWakaru(request: Request, env: Env): Promise<Response> {
@@ -985,7 +1001,7 @@ async function doWakaru(request: Request, env: Env): Promise<Response> {
     const content = mention.content.trim().match(/^[わ分]かる[!！]*$/)
         ? "https://cdn.nostr.build/i/f795a1ba2802c5b397cb538d0068da2deb6e7510d8cfff877e5561a15d55199b.jpg"
         : "https://cdn.nostr.build/i/fd99d078ba96f85b5e3f754e1aeef5f42dbf3312b5a345c5f3ea6405ce2980a7.jpg";
-    return JSONResponse(createReplyWithTags(env, mention, content, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, content, tags))
 }
 
 const hakatano = new Map([
@@ -1014,7 +1030,7 @@ async function doHakatano(request: Request, env: Env): Promise<Response> {
         .trim();
     for (const [k, v] of hakatano) {
         if (content === k) {
-            return JSONResponse(createReplyWithTags(env, mention, v, tags))
+            return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, v, tags))
         }
     }
     return JSONResponse(null);
@@ -1024,7 +1040,7 @@ async function doSUUMO(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content =
         "🌚ダン💥ダン💥ダン💥シャーン🎶ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽ〜〜〜わ⤴ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽわ🌚ぽわ🌝ぽ～～～わ⤵🌞";
-    return JSONResponse(createNoteWithTags(env, mention, content, []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, content, []))
 }
 
 async function doCAT(request: Request, env: Env): Promise<Response> {
@@ -1033,7 +1049,7 @@ async function doCAT(request: Request, env: Env): Promise<Response> {
     let res = await fetch("https://api.thecatapi.com/v1/images/search");
     const images: { [name: string]: any } = await res.json();
     const tags = [["t", "ぬっこ画像"]];
-    return JSONResponse(createReplyWithTags(env, mention, `#ぬっこ画像\n${images[0].url}`, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `#ぬっこ画像\n${images[0].url} `, tags))
 }
 
 async function doDOG(request: Request, env: Env): Promise<Response> {
@@ -1042,7 +1058,7 @@ async function doDOG(request: Request, env: Env): Promise<Response> {
     let res = await fetch("https://api.thedogapi.com/v1/images/search");
     const images: { [name: string]: any } = await res.json();
     const tags = [["t", "いっぬ画像"]];
-    return JSONResponse(createReplyWithTags(env, mention, `#いっぬ画像\n${images[0].url}`, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `#いっぬ画像\n${images[0].url} `, tags))
 }
 
 async function doTranslate(request: Request, env: Env): Promise<Response> {
@@ -1067,7 +1083,7 @@ async function doTranslate(request: Request, env: Env): Promise<Response> {
     }
     const response = await ai.run("@cf/meta/m2m100-1.2b", inputs);
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
-    return JSONResponse(createReplyWithTags(env, mention, response.translated_text, tags))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, response.translated_text, tags))
 }
 
 async function doMetadata(request: Request, env: Env): Promise<Response> {
@@ -1077,7 +1093,7 @@ async function doMetadata(request: Request, env: Env): Promise<Response> {
     const content = `${profile["display_name"].trim()
         } さんがプロフィールを更新しました`;
     metadata.kind = 1;
-    return JSONResponse(createNoteWithTags(env, metadata, content, tags))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, metadata, content, tags))
 }
 
 async function doBtcHow(request: Request, env: Env): Promise<Response> {
@@ -1088,9 +1104,9 @@ async function doBtcHow(request: Request, env: Env): Promise<Response> {
         const result = (await res.json() as any)
         const jpy = result?.JPY?.last?.toLocaleString()
         const usd = result?.USD?.last?.toLocaleString()
-        return JSONResponse(createReplyWithTags(env, mention, `現在のビットコイン日本円建てで${jpy}円($${usd})です`, []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `現在のビットコイン日本円建てで${jpy} 円($${usd})です`, []))
     }
-    return JSONResponse(createNoteWithTags(env, mention, "", []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, "", []))
 }
 
 export interface Quotes {
@@ -1110,9 +1126,9 @@ async function doJpyHow(request: Request, env: Env): Promise<Response> {
     const res = await fetch(url);
     if (res.ok) {
         const usdjpy: string = (await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid || '?';
-        return JSONResponse(createReplyWithTags(env, mention, `現在の円相場は1ドル ${usdjpy} 円です`, []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `現在の円相場は1ドル ${usdjpy} 円です`, []))
     }
-    return JSONResponse(createNoteWithTags(env, mention, "", []))
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, "", []))
 }
 
 const models: any[] = [
@@ -1131,7 +1147,7 @@ async function doGenImage(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/画像生成([0-9]*)\s+(.+)$/) || [];
     const index = Number(m && m.length > 1 && m[1].length > 0 ? m[1] : "1");
     if (index < 1 || index > models.length) {
-        return JSONResponse(createReplyWithTags(env, mention, "そんなん無い", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "そんなん無い", []))
     }
     const content = m ? m[2] : "";
     if (content === '') return JSONResponse(null);
@@ -1166,10 +1182,10 @@ async function doGenImage(request: Request, env: Env): Promise<Response> {
         })
         const item = "#ぬるぽが生成画像\n" + 'https://gyazo.compile-error.net/' + name;
         const tags = [["t", "ぬるぽが生成画像"]];
-        return JSONResponse(createReplyWithTags(env, mention, item, tags))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, item, tags))
     } catch (e) {
         console.log(e)
-        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "今忙しいから無理", []))
     }
 }
 
@@ -1189,9 +1205,9 @@ async function doGenCode(request: Request, env: Env): Promise<Response> {
                 { role: 'system', content: content }
             ]
         });
-        return JSONResponse(createReplyWithTags(env, mention, contents.response, []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, contents.response, []))
     } catch (e) {
-        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "今忙しいから無理", []))
     }
 }
 
@@ -1211,20 +1227,20 @@ async function doQuestion(request: Request, env: Env): Promise<Response> {
                 { role: 'user', content: content }
             ]
         });
-        return JSONResponse(createReplyWithTags(env, mention, contents.response, []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, contents.response, []))
     } catch (e) {
-        return JSONResponse(createReplyWithTags(env, mention, "今忙しいから無理", []))
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "今忙しいから無理", []))
     }
 }
 
 async function doSleeply(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createReplyWithTags(env, mention, "(`･д･⊂彡☆)) Д´)) ﾊﾟｧﾝ", []))
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, "(`･д･⊂彡☆)) Д´)) ﾊﾟｧﾝ", []))
 }
 
 async function doHit(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    return JSONResponse(createNoteWithTags(env, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []));
+    return JSONResponse(createNoteWithTags(env.NULLPOGA_NSEC, mention, "(`･д･⊂彡☆))Д´)) ﾊﾟｧﾝ", []));
 }
 
 export default {
@@ -1358,6 +1374,8 @@ export default {
                     return doFirstPost(request, env);
                 case "check-hansha":
                     return doCheckHansha(request, env);
+                case "police5000000000000000":
+                    return doPolice5000000000000000(request, env);
                 case "like":
                     return doLike(request, env);
                 case "":
