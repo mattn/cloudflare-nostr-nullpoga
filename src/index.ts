@@ -503,6 +503,16 @@ const bookmarks: bookmark[] = [
             "nostr:npub1m78s5eqv8l7snc5nnxdvlgue6pt5epgplndtem99quhwyptas7jss2qx53",
     },
     {
+        pattern: /^(あめ|rein)さん$/,
+        site:
+            "nostr:npub1eqw8nx0hya3cwvtc0rje6lpjzzf6gvuh0mngz898dhp6juuwrp5s5uzduw",
+    },
+    {
+        pattern: /^(たごかず)さん$/,
+        site:
+            "nostr:npub1s34hvwcjxnzk2tc7xfl9j4cdedjnt5kjqkyuvlp2n2gtxg6nnm9qldp90r",
+    },
+    {
         pattern: /^発火.*垢?$/,
         site:
             "nostr:npub1zqdnpm5gcfap8hngha7gcp3k363786phvs2etsvxw4nh6x9ydfzsuyk6mn",
