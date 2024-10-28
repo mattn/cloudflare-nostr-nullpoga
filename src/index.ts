@@ -513,6 +513,11 @@ const bookmarks: bookmark[] = [
             "nostr:npub1s34hvwcjxnzk2tc7xfl9j4cdedjnt5kjqkyuvlp2n2gtxg6nnm9qldp90r",
     },
     {
+        pattern: /^(あんず)さん$/,
+        site:
+            "nostr:npub1njty7prjt49kju6c3mjjlxvm0hjymf5s2qlfcyjqg5e0k8kftp3s4dpsn5",
+    },
+    {
         pattern: /^発火.*垢?$/,
         site:
             "nostr:npub1zqdnpm5gcfap8hngha7gcp3k363786phvs2etsvxw4nh6x9ydfzsuyk6mn",
