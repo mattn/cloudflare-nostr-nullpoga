@@ -636,7 +636,7 @@ async function doKamakuraAlive(request: Request, env: Env): Promise<Response> {
 
 async function doDajare(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    let res = await fetch("https://dajare-api.compile-error.net");
+    let res = await fetch("https://dajare-api.compile-error.net/api");
     const dajare: { [name: string]: string } = await res.json();
     const tags = [["t", "dajare"]];
     return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${dajare.text} #dajare`, tags))
@@ -710,6 +710,30 @@ async function doPolice5000000000000000(request: Request, env: Env): Promise<Res
         }
     }
     return JSONResponse(null)
+}
+
+async function doMultiple(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    let content = "" + mention.content;
+    let m = content.match(/^"(\S+)"と"(\S+)"の複数イベント$/);
+    if (!m) m = content.match(/^「(\S+)」と「(\S+)」の複数イベント$/);
+    if (!m) m = content.match(/^(\S+)\s*と\s*(\S+)\s*の複数イベント$/);
+    if (!m) return JSONResponse(null);
+    return JSONResponse([
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, `${m[1]} と`, []),
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, `${m[2]} です`, []),
+    ]);
+}
+
+async function doUsaElection2024(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    let res = await fetch("https://data.ddhq.io/electoral_college/2024");
+    const result: any = await res.json();
+    const harris = result.candidates.find((e: any) => e.last_name == 'Harris').electoral_votes_total
+    const trump = result.candidates.find((e: any) => e.last_name == 'Trump').electoral_votes_total
+    const status = `Harris(${harris}) vs Trump(${trump}) vs Hakkadaikon(0) #UsaElection2024`
+    const tags = [["t", "UsaElection2024"]];
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, status, tags))
 }
 
 async function doLike(request: Request, env: Env): Promise<Response> {
@@ -1391,8 +1415,12 @@ export default {
                     return doCheckHansha(request, env);
                 case "police5000000000000000":
                     return doPolice5000000000000000(request, env);
+                case "multiple":
+                    return doMultiple(request, env);
                 case "like":
                     return doLike(request, env);
+                case "usa-election-2024":
+                    return doUsaElection2024(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
