@@ -532,6 +532,11 @@ const bookmarks: bookmark[] = [
         site:
             "https://showhyuga.pages.dev/utility/nos_jump",
     },
+    {
+        pattern: /^(のす廃チェッカー|ノス廃チェッカー|Nostr hours)$/,
+        site:
+            "https://snowcait.github.io/nostr-hours/",
+    },
 ];
 
 async function doWhere(request: Request, env: Env): Promise<Response> {
