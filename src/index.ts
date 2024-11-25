@@ -650,6 +650,7 @@ const oppapi = new Map([
     [/こじじ+ら/, 'こじら'],
     [/mattt+n/, 'mattn'],
     [/おっっ+ぱい/, 'おっぱい'],
+    [/ﾌﾞﾙﾙﾙ+ｯﾁﾓ/, 'ﾌﾞﾙﾙｯﾁﾓ'],
 ]);
 
 async function doOppapi(request: Request, env: Env): Promise<Response> {
