@@ -4,6 +4,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230419.0",
     "@types/node": "^20.10.1",
+    "@typescript/native-preview": "^7.0.0-dev.20250522.2",
     "typescript": "^5.0.4",
     "wrangler": "^2.21.2"
   },
@@ -15,7 +16,7 @@
   "dependencies": {
     "@cloudflare/ai": "^1.0.14",
     "eastasianwidth": "^0.2.0",
-    "nostr-tools": "^1.10.1",
+    "nostr-tools": "^1.17.0",
     "runes": "^0.4.3",
     "suddendeath": "^0.2.0"
   }
