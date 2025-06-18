@@ -6,11 +6,9 @@ import {
     getPublicKey,
     nip19,
     relayInit,
-    signEvent,
+    getSignature,
     SimplePool,
 } from "nostr-tools";
-
-import { Ai } from "@cloudflare/ai";
 
 const cache = caches.default;
 
@@ -113,7 +111,8 @@ function createLike(nsec: string, mention: Event): Event {
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = signEvent(event, sk);
+    event.sig = getSignature(event, sk);
+
     return event;
 }
 
@@ -150,7 +149,7 @@ function createReplyWithTags(
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = signEvent(event, sk);
+    event.sig = getSignature(event, sk);
     return event;
 }
 
@@ -183,7 +182,7 @@ function createNoteWithTags(
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = signEvent(event, sk);
+    event.sig = getSignature(event, sk);
     return event;
 }
 
@@ -1110,7 +1109,6 @@ async function doTranslate(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const m = mention.content.match(/(和英|英和)\s+(.+)$/) || [];
     const content = m ? m[2] : "";
-    const ai = new Ai(env.AI);
     const inputs = {
         text: content,
         source_lang: "en",
@@ -1126,7 +1124,7 @@ async function doTranslate(request: Request, env: Env): Promise<Response> {
             inputs.target_lang = "en";
             break;
     }
-    const response = await ai.run("@cf/meta/m2m100-1.2b", inputs);
+    const response = await env.AI.run("@cf/meta/m2m100-1.2b", inputs);
     const tags = mention.tags.filter((x: any[]) => x[0] === "emoji");
     return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, response.translated_text, tags))
 }
@@ -1184,6 +1182,29 @@ const models: any[] = [
     "@cf/runwayml/stable-diffusion-v1-5-inpainting",
 ];
 
+async function streamToUint8Array(stream: ReadableStream): Promise<Uint8Array> {
+    const reader = stream.getReader();
+    const chunks = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+    }
+
+    const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+    const result = new Uint8Array(totalLength);
+
+    let position = 0;
+    for (const chunk of chunks) {
+        result.set(chunk, position);
+        position += chunk.length;
+    }
+
+    return result;
+}
+
 async function doGenImage(request: Request, env: Env): Promise<Response> {
     if (!bearerAuthentication(request, env.NULLPOGA_GENIMAGE_TOKEN)) {
         return notAuthenticated(request, env);
@@ -1197,28 +1218,30 @@ async function doGenImage(request: Request, env: Env): Promise<Response> {
     const content = m ? m[2] : "";
     if (content === '') return JSONResponse(null);
     try {
-        const ai = new Ai(env.AI);
         const model = models[index - 1];
-        const contents = await ai.run(model, {
+        const contents = await env.AI.run(model, {
             prompt: content,
             num_steps: 20,
         });
 
-        const bytes = new Uint8Array(await crypto.subtle.digest(
+        const bytes = await streamToUint8Array(contents);
+        const digest = new Uint8Array(await crypto.subtle.digest(
             {
                 name: 'SHA-1',
             },
-            contents,
+            bytes,
         ));
+        console.log(typeof digest)
         let hash = '';
         for (let i = 0; i < 8; i++) {
-            let value = bytes[i].toString(16);
+            let value = digest[i].toString(16);
             hash += (value.length === 1 ? '0' + value : value);
         }
         const name = hash + '.png';
+        console.log(name)
         const headers = new Headers();
         headers.set('content-type', 'image/png');
-        await env.gyazo.put(name, contents, {
+        await env.gyazo.put(name, bytes, {
             httpMetadata: headers,
             customMetadata: {
                 'created-by': 'nullpoga',
@@ -1243,9 +1266,8 @@ async function doGenCode(request: Request, env: Env): Promise<Response> {
     const content = m ? m[2] : "";
     if (content === '') return JSONResponse(null);
     try {
-        const ai = new Ai(env.AI);
         const model = "@hf/thebloke/deepseek-coder-6.7b-instruct-awq"
-        const contents = await ai.run(model, {
+        const contents = await env.AI.run(model, {
             messages: [
                 { role: 'system', content: content }
             ]
@@ -1265,9 +1287,8 @@ async function doQuestion(request: Request, env: Env): Promise<Response> {
     const content = m ? m[2] : "";
     if (content === '') return JSONResponse(null);
     try {
-        const ai = new Ai(env.AI);
         const model = "@cf/meta/llama-2-7b-chat-int8"
-        const contents = await ai.run(model, {
+        const contents = await env.AI.run(model, {
             messages: [
                 { role: 'user', content: content }
             ]
