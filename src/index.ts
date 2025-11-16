@@ -640,7 +640,7 @@ async function doKamakuraAlive(request: Request, env: Env): Promise<Response> {
 
 async function doDajare(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    let res = await fetch("https://dajare-api.compile-error.net/api");
+    let res = await fetch("https://func.compile-error.net/dajare");
     const dajare: { [name: string]: string } = await res.json();
     const tags = [["t", "dajare"]];
     return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${dajare.text} #dajare`, tags))
