@@ -741,6 +741,28 @@ async function doUsaElection2024(request: Request, env: Env): Promise<Response> 
     return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, status, tags))
 }
 
+async function doHowMuchMattn(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const m = mention.content.match(/^([0-9]+)\s*MATTN\s*いくら$/);
+    const mattn = m ? Number(m[1].trim()) : 0;
+
+    // 1. MATTN USD価格取得
+    const dexResponse = await fetch('https://api.dexscreener.com/latest/dex/tokens/0xc8f48e2b873111aa820463915b3a637302171d61');
+    const dexData: { [name: string]: any } = await dexResponse.json();
+    const price: { [name: string]: any } = dexData["pairs"][0];
+    const usdPrice = Number(price["priceUsd"] || 0);
+    console.log(`MATTN USD Price: ${usdPrice}`);
+
+    // 2. USD/JPYレート取得
+    const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
+    if (!res.ok) {
+        return JSONResponse(null);
+    }
+    const jpy = Number((await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid);
+    console.log(`USD/JPY Rate: ${jpy}`);
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${mattn} MATTN は ${(mattn * usdPrice * jpy).toFixed(10).replace(/0+$/, '').replace(/\.$/, '.0')} 円です`, []))
+}
+
 async function doLike(request: Request, env: Env): Promise<Response> {
     let mention: Event = await request.json();
     const decoded = nip19.decode(env.NULLPOGA_NSEC);
@@ -1448,6 +1470,8 @@ export default {
                     return doLike(request, env);
                 case "usa-election-2024":
                     return doUsaElection2024(request, env);
+                case "how-much-mattn":
+                    return doHowMuchMattn(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
