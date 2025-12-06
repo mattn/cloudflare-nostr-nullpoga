@@ -6,7 +6,7 @@ import {
     getPublicKey,
     nip19,
     relayInit,
-    getSignature,
+    signEvent,
     SimplePool,
 } from "nostr-tools";
 
@@ -25,6 +25,7 @@ export interface Env {
     NULLPOGA_GENCODE_TOKEN: string;
     NULLPOGA_NSEC: string;
     POLICE5_NSEC: string;
+    ETHERSCAN_APIKEY: string;
     ochinchinland: KVNamespace;
     nostr_relationship: KVNamespace;
     nostr_profile: KVNamespace;
@@ -111,7 +112,7 @@ function createLike(nsec: string, mention: Event): Event {
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = getSignature(event, sk);
+    event.sig = signEvent(event, sk);
 
     return event;
 }
@@ -149,7 +150,7 @@ function createReplyWithTags(
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = getSignature(event, sk);
+    event.sig = signEvent(event, sk);
     return event;
 }
 
@@ -182,7 +183,7 @@ function createNoteWithTags(
         sig: "",
     };
     event.id = getEventHash(event);
-    event.sig = getSignature(event, sk);
+    event.sig = signEvent(event, sk);
     return event;
 }
 
@@ -747,20 +748,86 @@ async function doHowMuchMattn(request: Request, env: Env): Promise<Response> {
     const mattn = m ? Number(m[1].trim()) : 0;
 
     // 1. MATTN USD価格取得
-    const dexResponse = await fetch('https://api.dexscreener.com/latest/dex/tokens/0xc8f48e2b873111aa820463915b3a637302171d61');
-    const dexData: { [name: string]: any } = await dexResponse.json();
-    const price: { [name: string]: any } = dexData["pairs"][0];
+    const apiResponse = await fetch(`https://api.etherscan.io/v2/api?apikey=${env.ETHERSCAN_APIKEY}&chainid=1&module=account&action=balance&address=0xc8f48e2b873111aa820463915b3a637302171d61&tag=latest`)
+    const apiData: { [name: string]: any } = await apiResponse.json();
+    const price = apiData["result"];
+    if (!price) {
+        return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `価格不明です`, []))
+    }
     const usdPrice = Number(price["priceUsd"] || 0);
     console.log(`MATTN USD Price: ${usdPrice}`);
 
-    // 2. USD/JPYレート取得
+    const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
+    if (!res.ok) {
+        return JSONResponse(null);
+    }
+    console.log(res)
+    const jpy = Number((await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid);
+
+    console.log(jpy)
+    const amountJpy = (mattn * usdPrice * jpy) //.toFixed(10).replace(/0+$/, '').replace(/\.$/, '.0')
+    console.log(amountJpy)
+    const formattedJpy = amountJpy.toLocaleString("ja-JP", {
+        style: "currency",
+        currency: "JPY",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+    console.log(`USD/JPY Rate: ${jpy}`);
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${mattn} MATTN は ${formattedJpy} です`, []))
+}
+
+async function doHowMuchSats(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const m = mention.content.match(/^([0-9]+)\s*sats?\s*いくら$/i);
+    const sats = m ? Number(m[1].trim()) : 0;
+
+    const btcUsdRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
+    const btcUsdData: { [name: string]: any } = await btcUsdRes.json();
+    const btcPriceUsd = btcUsdData.bitcoin?.usd;           // USD per 1 BTC
+    const satsPriceUsd = btcPriceUsd / 100_000_000;       // USD per 1 sats
+
     const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
     if (!res.ok) {
         return JSONResponse(null);
     }
     const jpy = Number((await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid);
-    console.log(`USD/JPY Rate: ${jpy}`);
-    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, `${mattn} MATTN は ${(mattn * usdPrice * jpy).toFixed(10).replace(/0+$/, '').replace(/\.$/, '.0')} 円です`, []))
+
+    const amountJpy = sats * satsPriceUsd * jpy;
+    const formattedJpy = amountJpy.toLocaleString("ja-JP", {
+        style: "currency",
+        currency: "JPY",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+    const reply = `${sats.toLocaleString()} sats は ${formattedJpy} です`;
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []));
+}
+
+async function doHowMuchBtc(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const m = mention.content.match(/^([0-9]+)\s*BTC?\s*いくら$/i);
+    const btc = m ? Number(m[1].trim()) : 0;
+
+    const btcUsdRes = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
+    const btcUsdData: { [name: string]: any } = await btcUsdRes.json();
+    const btcPriceUsd = btcUsdData.bitcoin?.usd;           // USD per 1 BTC
+
+    const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
+    if (!res.ok) {
+        return JSONResponse(null);
+    }
+    const jpy = Number((await res.json() as Quotes).quotes.filter((x) => x?.currencyPairCode === "USDJPY")[0].bid);
+
+    const amountJpy = btcPriceUsd * jpy;
+    const formattedJpy = amountJpy.toLocaleString("ja-JP", {
+        style: "currency",
+        currency: "JPY",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+    const reply = `${btc.toLocaleString()} BTC は ${formattedJpy} です`;
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []));
 }
 
 async function doLike(request: Request, env: Env): Promise<Response> {
@@ -1472,6 +1539,10 @@ export default {
                     return doUsaElection2024(request, env);
                 case "how-much-mattn":
                     return doHowMuchMattn(request, env);
+                case "how-much-sats":
+                    return doHowMuchSats(request, env);
+                case "how-much-btc":
+                    return doHowMuchBtc(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
