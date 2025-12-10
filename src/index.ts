@@ -547,7 +547,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, b.site, []))
         }
     }
-    const mNIP = content.match(/^NIP-?([0-9]+)/i)
+    const mNIP = content.match(/^NIP-?([0-9A-Z]+)/i)
     if (mNIP) {
         const url = "https://github.com/nostr-protocol/nips/blob/master/" + mNIP[1] + ".md";
         const res = await fetch(url);
@@ -562,7 +562,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
         const res = await fetch(url);
         if (res.ok) {
             const m = new Map<number, string>();
-            (await res.text()).split(/\n## Event Kinds/)[1].split(/\n\n/)[1].split(/\n/).forEach(x => {
+            (await res.text()).split(/\n## Event Kinds/)[1].trim().split(/\n\n/)[0].trim().split(/\n/).forEach(x => {
                 const tok = x.split(/\|/)
                 if (tok.length < 4) return
                 const kind = tok[1].replace(/[`` ]/g, "") || ""
@@ -827,6 +827,22 @@ async function doHowMuchBtc(request: Request, env: Env): Promise<Response> {
         maximumFractionDigits: 0,
     });
     const reply = `${btc.toLocaleString()} BTC は ${formattedJpy} です`;
+    return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []));
+}
+
+async function doThingstr(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const m = mention.content.match(/^(Q[0-9]+)$/);
+    const id = m ? m[1].trim() : '';
+
+    console.log(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${id}&uselang=ja&format=json`)
+    const res = await fetch(`https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${id}&uselang=ja&format=json`, { headers: { "user-agent": "cloudflare-nostr-nullpoga" } })
+    const result: { [name: string]: any } = await res.json();
+    const entity = result?.entities?.[id];
+    const title = entity?.sitelinks?.jawiki?.title || entity?.labels?.ja?.value;
+    if (title === undefined) return JSONResponse(null);
+    const description = entity?.descriptions?.ja?.value || entity?.descriptions?.en?.value;
+    const reply = `${title}\n${description}\nhttps://thingstr.pages.dev/things/${id}`;
     return JSONResponse(createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []));
 }
 
@@ -1543,6 +1559,8 @@ export default {
                     return doHowMuchSats(request, env);
                 case "how-much-btc":
                     return doHowMuchBtc(request, env);
+                case "thingstr":
+                    return doThingstr(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
