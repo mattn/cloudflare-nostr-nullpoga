@@ -6,7 +6,7 @@
     "@types/node": "^20.10.1",
     "@typescript/native-preview": "^7.0.0-dev.20250522.2",
     "typescript": "^5.0.4",
-    "wrangler": "^2.21.2"
+    "wrangler": "^4.55.0"
   },
   "private": true,
   "scripts": {
