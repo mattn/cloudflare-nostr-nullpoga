@@ -759,11 +759,16 @@ async function doFirstPost(request: Request, env: Env): Promise<Response> {
         }
     }
 
+    if (found === null) {
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, "見つかりませんでした", []),
+        );
+    }
     return JSONResponse(
         createReplyWithTags(
             env.NULLPOGA_NSEC,
             mention,
-            `これです\nnostr:${nip19.noteEncode("" + found?.id)}`,
+            `これです\nnostr:${nip19.noteEncode(found.id)}`,
             [],
         ),
     );
