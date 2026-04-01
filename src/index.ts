@@ -723,7 +723,7 @@ async function doOppapi(request: Request, env: Env): Promise<Response> {
                 createReplyWithTags(
                     env.NULLPOGA_NSEC,
                     mention,
-                    `${mention.content.split("").length - o[1].length}${o[1]}です`,
+                    `${runes(mention.content).length - runes(o[1]).length}${o[1]}です`,
                     [],
                 ),
             );
