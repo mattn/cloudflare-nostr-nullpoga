@@ -306,7 +306,7 @@ async function doRelationship(request: Request, env: Env): Promise<Response> {
             kinds: [10000],
             authors: [sk],
         });
-        if (mute === null) throw "Not Found";
+        if (mute === null) return notFound(request, env);
         relation = {
             follow: follow,
             mute: mute,
