@@ -613,7 +613,7 @@ async function doGoogle(request: Request, env: Env): Promise<Response> {
     const m = mention.content.match(/^\[(.+)\]\[検索\]$/) ||
         mention.content.match(/^検索:(.+)$/) || [];
     const contents = "https://www.google.com/search?q=" +
-        encodeURIComponent((m ? m[1] : "").trim());
+        encodeURIComponent((m[1] || "").trim());
     return JSONResponse(
         createReplyWithTags(env.NULLPOGA_NSEC, mention, contents, []),
     );
