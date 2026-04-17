@@ -1004,33 +1004,46 @@ async function doBrassicaceae(request: Request, env: Env): Promise<Response> {
     const word = m[1].trim();
     if (word === "") return JSONResponse(null);
 
-    const url = "https://ja.wikipedia.org/w/api.php?action=query&prop=categories" +
-        "&cllimit=max&format=json&redirects=1&titles=" + encodeURIComponent(word);
-    const res = await fetch(url, {
-        headers: { "user-agent": "cloudflare-nostr-nullpoga" },
-    });
-    if (!res.ok) {
-        return JSONResponse(
-            createReplyWithTags(env.NULLPOGA_NSEC, mention, "わからん", []),
-        );
-    }
-    const result: any = await res.json();
-    const pages = result?.query?.pages || {};
-    const page: any = Object.values(pages)[0];
-    if (!page || page.missing !== undefined) {
+    const fetchCategories = async (title: string): Promise<string[]> => {
+        const url =
+            "https://ja.wikipedia.org/w/api.php?action=query&prop=categories" +
+            "&cllimit=max&format=json&redirects=1&titles=" +
+            encodeURIComponent(title);
+        const res = await fetch(url, {
+            headers: { "user-agent": "cloudflare-nostr-nullpoga" },
+        });
+        if (!res.ok) return [];
+        const result: any = await res.json();
+        const pages = result?.query?.pages || {};
+        const page: any = Object.values(pages)[0];
+        if (!page || page.missing !== undefined) return [];
+        return (page.categories || [])
+            .map((c: any) => c?.title)
+            .filter((t: unknown): t is string => typeof t === "string");
+    };
+
+    const categories = await fetchCategories(word);
+    if (categories.length === 0) {
         return JSONResponse(
             createReplyWithTags(env.NULLPOGA_NSEC, mention, `${word}は知らん`, []),
         );
     }
-    const categories: any[] = page.categories || [];
-    const isBrassicaceae = categories.some((c: any) =>
-        typeof c?.title === "string" && c.title.includes("アブラナ科")
-    );
-    const reply = isBrassicaceae
-        ? `${word}はアブラナ科だよ`
-        : `${word}はアブラナ科じゃないよ`;
+    if (categories.some((t) => t.includes("アブラナ科"))) {
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, `${word}はアブラナ科だよ`, []),
+        );
+    }
+    const genusCats = categories.filter((t) => /属$/.test(t));
+    for (const cat of genusCats) {
+        const parents = await fetchCategories(cat);
+        if (parents.some((t) => t.includes("アブラナ科"))) {
+            return JSONResponse(
+                createReplyWithTags(env.NULLPOGA_NSEC, mention, `${word}はアブラナ科だよ`, []),
+            );
+        }
+    }
     return JSONResponse(
-        createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []),
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, `${word}はアブラナ科じゃないよ`, []),
     );
 }
 
