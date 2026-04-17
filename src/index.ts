@@ -997,6 +997,43 @@ async function doWhois(request: Request, env: Env): Promise<Response> {
     return JSONResponse(null)
 }
 
+async function doBrassicaceae(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const m = mention.content.match(/^(.+?)はアブラナ科(?:ですか)?[?？]$/);
+    if (!m) return JSONResponse(null);
+    const word = m[1].trim();
+    if (word === "") return JSONResponse(null);
+
+    const url = "https://ja.wikipedia.org/w/api.php?action=query&prop=categories" +
+        "&cllimit=max&format=json&redirects=1&titles=" + encodeURIComponent(word);
+    const res = await fetch(url, {
+        headers: { "user-agent": "cloudflare-nostr-nullpoga" },
+    });
+    if (!res.ok) {
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, "わからん", []),
+        );
+    }
+    const result: any = await res.json();
+    const pages = result?.query?.pages || {};
+    const page: any = Object.values(pages)[0];
+    if (!page || page.missing !== undefined) {
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, `${word}は知らん`, []),
+        );
+    }
+    const categories: any[] = page.categories || [];
+    const isBrassicaceae = categories.some((c: any) =>
+        typeof c?.title === "string" && c.title.includes("アブラナ科")
+    );
+    const reply = isBrassicaceae
+        ? `${word}はアブラナ科だよ`
+        : `${word}はアブラナ科じゃないよ`;
+    return JSONResponse(
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, reply, []),
+    );
+}
+
 async function doKyomonan(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const shuffleArray = (arr: string[]) => arr.sort(() => Math.random() - Math.random());
@@ -1833,6 +1870,8 @@ export default {
                     return doWhois(request, env);
                 case "kyomonan":
                     return doKyomonan(request, env);
+                case "brassicaceae":
+                    return doBrassicaceae(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }
