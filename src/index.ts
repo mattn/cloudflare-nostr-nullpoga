@@ -26,6 +26,8 @@ export interface Env {
     NULLPOGA_NSEC: string;
     POLICE5_NSEC: string;
     ETHERSCAN_APIKEY: string;
+    // 反応してほしくない人の npub/pubkey をカンマ(または空白)区切りで列挙する
+    NULLPOGA_BLOCKED_PUBKEYS: string;
     ochinchinland: KVNamespace;
     nostr_relationship: KVNamespace;
     nostr_profile: KVNamespace;
@@ -86,6 +88,35 @@ function unsupportedMethod(_request: Request, _env: Env) {
     return new Response(`Unsupported method`, {
         status: 400,
     });
+}
+
+// NULLPOGA_BLOCKED_PUBKEYS をパースして hex pubkey の Set にする。
+// npub1... は hex に変換し、不正な値は無視する。
+function parseBlockedPubkeys(env: Env): Set<string> {
+    const set = new Set<string>();
+    for (const item of (env.NULLPOGA_BLOCKED_PUBKEYS || "").split(/[,\s]+/)) {
+        const v = item.trim();
+        if (v === "") continue;
+        try {
+            set.add(v.startsWith("npub1") ? nip19.decode(v).data as string : v);
+        } catch (_e) {
+            // 不正な npub は無視
+        }
+    }
+    return set;
+}
+
+// リクエスト本文の投稿者がブロック対象なら true。
+// 本文は handler 側で再度読むので request.clone() で消費しない。
+async function isBlockedPubkey(request: Request, env: Env): Promise<boolean> {
+    const blocked = parseBlockedPubkeys(env);
+    if (blocked.size === 0) return false;
+    try {
+        const mention = await request.clone().json() as Event;
+        return blocked.has(mention.pubkey);
+    } catch (_e) {
+        return false;
+    }
 }
 
 function bearerAuthentication(request: Request, secret: string) {
@@ -1732,6 +1763,179 @@ async function doHit(request: Request, env: Env): Promise<Response> {
     );
 }
 
+// 投稿に「これはプリン？」と画像URLが含まれていたら、画像を判定エンドポイントに
+// 投げて「プリンです」「プリンではありません」と返信する。
+const PUDDING_ENDPOINT = "https://pudding-model.compile-error.net/predict";
+
+function extractImageUrl(mention: Event): string {
+    // 本文中の画像URL
+    const m = mention.content.match(
+        /https?:\/\/[^\s]+\.(?:jpe?g|png|webp|gif)(?:\?[^\s]*)?/i,
+    );
+    if (m) return m[0];
+    // NIP-92 imeta タグ: ["imeta", "url https://...", "m image/png", ...]
+    for (const tag of mention.tags) {
+        if (tag[0] !== "imeta") continue;
+        for (const kv of tag.slice(1)) {
+            const mm = /^url\s+(\S+)/.exec(kv);
+            if (mm) return mm[1];
+        }
+    }
+    return "";
+}
+
+// 投稿が画像そのものではなく nostr:note1.../nostr:nevent1...（または q タグ）で
+// 別の投稿を参照している場合の、参照先イベントID＋リレーヒントを取り出す。
+function findNostrRef(mention: Event): { id: string; relays: string[] } | null {
+    const m = mention.content.match(/(?:nostr:)?(note1[0-9a-z]+|nevent1[0-9a-z]+)/i);
+    if (m) {
+        try {
+            const dec = nip19.decode(m[1]);
+            if (dec.type === "note") return { id: dec.data as string, relays: [] };
+            if (dec.type === "nevent") {
+                const d = dec.data as { id: string; relays?: string[] };
+                return { id: d.id, relays: d.relays ?? [] };
+            }
+        } catch (_e) { /* 不正な bech32 は無視 */ }
+    }
+    // 引用 q タグ: ["q", "<event-id>", "<relay>"]
+    for (const tag of mention.tags) {
+        if (tag[0] === "q" && tag[1]) {
+            return { id: tag[1], relays: tag[2] ? [tag[2]] : [] };
+        }
+    }
+    return null;
+}
+
+// 投稿本体に画像があればそれを、無ければ参照先イベントを取得して画像URLを返す。
+async function resolveImageUrl(mention: Event): Promise<string> {
+    const direct = extractImageUrl(mention);
+    if (direct !== "") return direct;
+
+    const ref = findNostrRef(mention);
+    if (ref === null) return "";
+
+    const pool = new SimplePool();
+    const relays = [
+        "wss://yabu.me",
+        "wss://relay-jp.nostr.wirednet.jp",
+        ...ref.relays,
+    ];
+    try {
+        const ev = await pool.get(relays, { ids: [ref.id] });
+        if (ev) return extractImageUrl(ev as Event);
+    } catch (_e) { /* 取得失敗は空扱い */ }
+    return "";
+}
+
+async function doPudding(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    if (!/これはプリン\s*[?？]/.test(mention.content)) return JSONResponse(null);
+
+    const imageUrl = await resolveImageUrl(mention);
+    if (imageUrl === "") {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "画像が見つからないんだなぁ",
+                [],
+            ),
+        );
+    }
+
+    try {
+        const imgRes = await fetch(imageUrl, {
+            headers: { "user-agent": "cloudflare-nostr-nullpoga" },
+        });
+        if (!imgRes.ok) throw new Error(`fetch image failed: ${imgRes.status}`);
+        const buf = await imgRes.arrayBuffer();
+
+        const predRes = await fetch(PUDDING_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "content-type": imgRes.headers.get("content-type") ||
+                    "application/octet-stream",
+            },
+            body: buf,
+        });
+        if (!predRes.ok) throw new Error(`predict failed: ${predRes.status}`);
+        const result = await predRes.json() as {
+            pudding: boolean;
+            probability: number;
+        };
+        const message = result.pudding ? "プリンです" : "プリンではありません";
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, message, []),
+        );
+    } catch (_e) {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "プリン判定に失敗したんだなぁ",
+                [],
+            ),
+        );
+    }
+}
+
+// 投稿に「これはカレー？」と画像URLが含まれていたら、画像を判定エンドポイントに
+// 投げて「カレーです」「カレーではありません」と返信する。
+const CURRY_ENDPOINT = "https://curry-model.compile-error.net/predict";
+
+async function doCurry(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    if (!/これはカレー\s*[?？]/.test(mention.content)) return JSONResponse(null);
+
+    const imageUrl = await resolveImageUrl(mention);
+    if (imageUrl === "") {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "画像が見つからないんだなぁ",
+                [],
+            ),
+        );
+    }
+
+    try {
+        const imgRes = await fetch(imageUrl, {
+            headers: { "user-agent": "cloudflare-nostr-nullpoga" },
+        });
+        if (!imgRes.ok) throw new Error(`fetch image failed: ${imgRes.status}`);
+        const buf = await imgRes.arrayBuffer();
+
+        const predRes = await fetch(CURRY_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "content-type": imgRes.headers.get("content-type") ||
+                    "application/octet-stream",
+            },
+            body: buf,
+        });
+        if (!predRes.ok) throw new Error(`predict failed: ${predRes.status}`);
+        const result = await predRes.json() as {
+            curry: boolean;
+            probability: number;
+        };
+        const message = result.curry ? "カレーです" : "カレーではありません";
+        return JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, message, []),
+        );
+    } catch (_e) {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "カレー判定に失敗したんだなぁ",
+                [],
+            ),
+        );
+    }
+}
+
 export default {
     async fetch(
         request: Request,
@@ -1772,6 +1976,10 @@ export default {
             return notFound(request, env);
         }
         if (request.method === "POST") {
+            // 反応してほしくない人からの投稿には一切反応しない
+            if (await isBlockedPubkey(request, env)) {
+                return JSONResponse(null);
+            }
             switch (pathArray[1]) {
                 case "loginbonus":
                     return doLoginbonus(request, env);
@@ -1837,6 +2045,10 @@ export default {
                     return doSleeply(request, env);
                 case "hit":
                     return doHit(request, env);
+                case "pudding":
+                    return doPudding(request, env);
+                case "curry":
+                    return doCurry(request, env);
                 case "translate":
                     return doTranslate(request, env);
                 case "metadata":

@@ -8,6 +8,10 @@ kv_namespaces = [
   { binding = "nostr_profile", id = "15418c1d70594a19ad7ca34f1f650ab5", preview_id = "0edcc1678c5c4e72b47146a9ada35f5b" }
 ]
 
+# 反応してほしくない人の npub/pubkey をカンマ(または空白)区切りで列挙する
+[vars]
+NULLPOGA_BLOCKED_PUBKEYS = "npub1s02jksmr6tgmcksf3hnmue7pyzlm0sxwarh7lk8tdeprw2hjg6ysp7fxtw"
+
 [ai]
 binding = "AI"
 
