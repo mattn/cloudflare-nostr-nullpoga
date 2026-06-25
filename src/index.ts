@@ -592,27 +592,20 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             );
         }
     }
-    const mNIP = content.match(/^NIP-?([0-9A-Z]+)/i);
-    if (mNIP) {
-        const url = "https://github.com/nostr-protocol/nips/blob/master/" +
-            mNIP[1] + ".md";
-        const res = await fetch(url);
-        if (res.ok) {
-            return JSONResponse(
-                createReplyWithTags(env.NULLPOGA_NSEC, mention, url, []),
-            );
-        }
-        return JSONResponse(
-            createReplyWithTags(env.NULLPOGA_NSEC, mention, "そんなん無い", []),
-        );
+    const nipMatches = [...content.matchAll(/NIP-?([0-9A-Z]+)/ig)];
+    const kindMatches = [...content.matchAll(/KIND[- ]?([0-9]+)/ig)];
+    if (nipMatches.length === 0 && kindMatches.length === 0) {
+        return JSONResponse(null);
     }
-    const mKIND = content.match(/^KIND ([0-9]+)/i);
-    if (mKIND) {
-        const url =
-            "https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md";
-        const res = await fetch(url);
+
+    // KIND が含まれる場合のみ README から kind→ページのマップを構築する
+    let kindMap: Map<number, string> | null = null;
+    if (kindMatches.length > 0) {
+        const res = await fetch(
+            "https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md",
+        );
         if (res.ok) {
-            const m = new Map<number, string>();
+            kindMap = new Map<number, string>();
             (await res.text()).split(/\n## Event Kinds/)[1].trim().split(/\n\n/)[0]
                 .trim().split(/\n/).forEach((x) => {
                     const tok = x.split(/\|/);
@@ -621,22 +614,37 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
                     if (kind === "") return;
                     const page = tok[3].match(/\(([0-9]+\.md)\)/)?.[1] || "";
                     if (page === "") return;
-                    m.set(Number(kind), page);
+                    kindMap!.set(Number(kind), page);
                 });
-            const kind = Number(mKIND[1]);
-            if (m.has(kind)) {
-                const url = "https://github.com/nostr-protocol/nips/blob/master/" +
-                    m.get(kind);
-                return JSONResponse(
-                    createReplyWithTags(env.NULLPOGA_NSEC, mention, url, []),
-                );
-            }
         }
-        return JSONResponse(
-            createReplyWithTags(env.NULLPOGA_NSEC, mention, "そんなん無い", []),
-        );
     }
-    return JSONResponse(null);
+
+    const lines: { label: string; body: string }[] = [];
+    for (const m of nipMatches) {
+        const label = "NIP-" + m[1];
+        // NIP のファイル名は数字のみの場合 2 桁ゼロ埋め (例: NIP-1 -> 01.md)
+        const page = /^[0-9]+$/.test(m[1]) ? m[1].padStart(2, "0") : m[1];
+        const url = "https://github.com/nostr-protocol/nips/blob/master/" +
+            page + ".md";
+        const res = await fetch(url);
+        lines.push({ label, body: res.ok ? url : "そんなん無い" });
+    }
+    for (const m of kindMatches) {
+        const label = "KIND " + m[1];
+        const page = kindMap?.get(Number(m[1]));
+        const url = page
+            ? "https://github.com/nostr-protocol/nips/blob/master/" + page
+            : null;
+        lines.push({ label, body: url ?? "そんなん無い" });
+    }
+
+    // 1 件だけのときは従来どおり本文(URL もしくは "そんなん無い")のみを返す
+    const message = lines.length === 1
+        ? lines[0].body
+        : lines.map((l) => `${l.label} ${l.body}`).join("\n");
+    return JSONResponse(
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, message, []),
+    );
 }
 
 async function doGoogle(request: Request, env: Env): Promise<Response> {
