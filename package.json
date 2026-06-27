@@ -11,7 +11,9 @@
   "private": true,
   "scripts": {
     "start": "wrangler dev",
-    "deploy": "wrangler publish"
+    "deploy": "wrangler publish",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@cloudflare/ai": "^1.0.14",

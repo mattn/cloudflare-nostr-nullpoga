@@ -1,14 +1,30 @@
-name: Deploy
+name: CI
 
 on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
   deploy:
     runs-on: ubuntu-latest
     name: Deploy
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - name: Publish
