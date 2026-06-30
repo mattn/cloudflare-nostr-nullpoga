@@ -11,6 +11,7 @@ import {
     extractImageUrl,
     findNostrRef,
     levenshtein,
+    meuify,
     parseBlockedPubkeys,
 } from "../src/lib.ts";
 
@@ -167,6 +168,13 @@ test("createNoteWithTags: e/p タグを付けず署名する", () => {
     assert.equal(ev.content, "note");
     assert.deepEqual(ev.tags, []);
     assert.ok(verifySignature(ev));
+});
+
+test("meuify: 各文字に濁点を付け末尾に伸ばし棒と感嘆符を足す", () => {
+    assert.equal(
+        meuify("めうのお尻にＮＩＰ－０１が入ってくるめう"),
+        "め゛う゛の゛お゛尻゛に゛Ｎ゛Ｉ゛Ｐ゛－゛０゛１゛が゛入゛っ゛て゛く゛る゛め゛う゛ー゛！゛！゛！゛！゛！゛",
+    );
 });
 
 test("extractImageUrl: 本文中の画像URLを取り出す", () => {

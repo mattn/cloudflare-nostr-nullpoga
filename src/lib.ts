@@ -123,6 +123,14 @@ export function createNoteWithTags(
     return event;
 }
 
+// 「～めう」という投稿に対して、各文字へ濁点(゛)を付けて返す文字列を作る。
+// 末尾には「ー！！！！！」を足してから、1文字ずつ濁点を入れる。
+export function meuify(content: string): string {
+    return Array.from(content + "ー！！！！！")
+        .map((c) => c + "゛")
+        .join("");
+}
+
 export function levenshtein(a: string, b: string): number {
     const an = a ? a.length : 0;
     const bn = b ? b.length : 0;

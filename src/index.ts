@@ -15,6 +15,7 @@ import {
     extractImageUrl,
     findNostrRef,
     levenshtein,
+    meuify,
     parseBlockedPubkeys,
 } from "./lib";
 
@@ -1065,6 +1066,17 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
     );
 }
 
+async function doMeu(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+    const content = ("" + mention.content).trim();
+    if (!content.endsWith("めう")) {
+        return JSONResponse(null);
+    }
+    return JSONResponse(
+        createReplyWithTags(env.NULLPOGA_NSEC, mention, meuify(content), []),
+    );
+}
+
 const pai = "🀀🀁🀂🀃🀄🀅🀆🀇🀈🀉🀊🀋🀌🀍🀎🀏🀐🀑🀒🀓🀔🀕🀖🀗🀘🀙🀚🀛🀜🀝🀞🀟🀠🀡";
 //const pai = '東南西北白発中一二三四五六七八九１２３４５６７８９①②③④⑤⑥⑦⑧⑨'
 
@@ -1824,6 +1836,8 @@ export default {
                     return doTsurupoVa(request, env);
                 case "nagashite":
                     return doNagashite(request, env);
+                case "meu":
+                    return doMeu(request, env);
                 case "nattoruyarogai":
                     return doNattoruyarogai(request, env);
                 case "suddendeath":
