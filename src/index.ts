@@ -17,6 +17,8 @@ import {
     levenshtein,
     meuify,
     parseBlockedPubkeys,
+    parseKindMap,
+    parseNipMap,
 } from "./lib";
 
 const cache = caches.default;
@@ -494,44 +496,29 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
         return JSONResponse(null);
     }
 
-    // KIND が含まれる場合のみ README から kind→ページのマップを構築する
-    let kindMap: Map<number, string> | null = null;
-    if (kindMatches.length > 0) {
-        const res = await fetch(
-            "https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md",
-        );
-        if (res.ok) {
-            kindMap = new Map<number, string>();
-            (await res.text()).split(/\n## Event Kinds/)[1].trim().split(/\n\n/)[0]
-                .trim().split(/\n/).forEach((x) => {
-                    const tok = x.split(/\|/);
-                    if (tok.length < 4) return;
-                    const kind = tok[1].replace(/[`` ]/g, "") || "";
-                    if (kind === "") return;
-                    const page = tok[3].match(/\(([0-9]+\.md)\)/)?.[1] || "";
-                    if (page === "") return;
-                    kindMap!.set(Number(kind), page);
-                });
-        }
-    }
+    // README を一度だけ取得して NIP/KIND 双方のマップを作る
+    const res = await fetch(
+        "https://raw.githubusercontent.com/nostr-protocol/nips/master/README.md",
+    );
+    const readme = res.ok ? await res.text() : "";
+    const nipMap = parseNipMap(readme);
+    const kindMap = parseKindMap(readme);
+    const baseUrl = "https://github.com/nostr-protocol/nips/blob/master/";
 
     const lines: { label: string; body: string }[] = [];
     for (const m of nipMatches) {
         const label = "NIP-" + m[1];
-        // NIP のファイル名は数字のみの場合 2 桁ゼロ埋め (例: NIP-1 -> 01.md)
-        const page = /^[0-9]+$/.test(m[1]) ? m[1].padStart(2, "0") : m[1];
-        const url = "https://github.com/nostr-protocol/nips/blob/master/" +
-            page + ".md";
-        const res = await fetch(url);
-        lines.push({ label, body: res.ok ? url : "そんなん無い" });
+        // NIP 番号は数字のみの場合 2 桁ゼロ埋め (例: NIP-1 -> 01)
+        const key = /^[0-9]+$/.test(m[1])
+            ? m[1].padStart(2, "0")
+            : m[1].toUpperCase();
+        const page = nipMap.get(key);
+        lines.push({ label, body: page ? baseUrl + page : "そんなん無い" });
     }
     for (const m of kindMatches) {
         const label = "KIND " + m[1];
-        const page = kindMap?.get(Number(m[1]));
-        const url = page
-            ? "https://github.com/nostr-protocol/nips/blob/master/" + page
-            : null;
-        lines.push({ label, body: url ?? "そんなん無い" });
+        const page = kindMap.get(Number(m[1]));
+        lines.push({ label, body: page ? baseUrl + page : "そんなん無い" });
     }
 
     // 1 件だけのときは従来どおり本文(URL もしくは "そんなん無い")のみを返す

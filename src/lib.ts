@@ -131,6 +131,39 @@ export function meuify(content: string): string {
         .join("");
 }
 
+// NIPs リポジトリの README の NIP 一覧 (- [NIP-01: ...](01.md)) から
+// NIP 番号 → ページ名のマップを作る。キーは大文字に正規化する (例: "01", "7D")。
+export function parseNipMap(readme: string): Map<string, string> {
+    const nipMap = new Map<string, string>();
+    for (
+        const m of readme.matchAll(
+            /^- \[NIP-([0-9A-Za-z]+)[^\]]*\]\(([0-9A-Za-z]+\.md)\)/gm,
+        )
+    ) {
+        nipMap.set(m[1].toUpperCase(), m[2]);
+    }
+    return nipMap;
+}
+
+// NIPs リポジトリの README から Event Kinds テーブルを読み、kind → ページ名のマップを作る。
+// 見出しとテーブルの間に説明文が入っても壊れないよう、次の見出しまでの行を走査する。
+export function parseKindMap(readme: string): Map<number, string> {
+    const kindMap = new Map<number, string>();
+    const section = readme.split(/\n## Event Kinds/i)[1];
+    if (!section) return kindMap;
+    for (const line of section.split(/\n## /)[0].split(/\n/)) {
+        const tok = line.split(/\|/);
+        if (tok.length < 4) continue;
+        const kind = tok[1].replace(/[` ]/g, "");
+        // ヘッダ行("kind")や範囲行("1000-9999")は数字のみでないので除外
+        if (!/^[0-9]+$/.test(kind)) continue;
+        const page = tok[3].match(/\(([0-9A-Za-z]+\.md)\)/)?.[1];
+        if (!page) continue;
+        kindMap.set(Number(kind), page);
+    }
+    return kindMap;
+}
+
 export function levenshtein(a: string, b: string): number {
     const an = a ? a.length : 0;
     const bn = b ? b.length : 0;

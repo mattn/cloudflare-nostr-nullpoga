@@ -13,6 +13,8 @@ import {
     levenshtein,
     meuify,
     parseBlockedPubkeys,
+    parseKindMap,
+    parseNipMap,
 } from "../src/lib.ts";
 
 // テスト用の固定鍵ペア
@@ -215,4 +217,47 @@ test("findNostrRef: q タグから参照を取り出す", () => {
 
 test("findNostrRef: 参照が無ければ null", () => {
     assert.equal(findNostrRef(mention({ content: "なし" })), null);
+});
+
+// 実際の README と同じ構造の抜粋。
+// 見出しとテーブルの間に説明文の段落があるのがポイント。
+const README = `# NIPs
+
+- [NIP-01: Basic protocol flow description](01.md)
+- [NIP-23: Long-form Content](23.md)
+- [NIP-C7: Chats](C7.md)
+
+## Event Kinds
+
+This table is not exhaustive. For a machine-readable registry prefer the registry-of-kinds.
+
+| kind          | description                     | NIP                                    |
+| ------------- | ------------------------------- | -------------------------------------- |
+| \`0\`           | User Metadata                   | [01](01.md)                            |
+| \`9\`           | Chat Message                    | [C7](C7.md)                            |
+| \`30023\`       | Long-form Content               | [23](23.md)                            |
+
+## Message types
+`;
+
+test("parseKindMap: 見出し直後に説明文があってもテーブルを読める", () => {
+    const map = parseKindMap(README);
+    assert.equal(map.get(0), "01.md");
+    assert.equal(map.get(30023), "23.md");
+});
+
+test("parseKindMap: 16進ページ名の NIP も読める", () => {
+    assert.equal(parseKindMap(README).get(9), "C7.md");
+});
+
+test("parseKindMap: 見出しが無ければ空マップ", () => {
+    assert.equal(parseKindMap("# NIPs\nなにもない").size, 0);
+});
+
+test("parseNipMap: NIP 一覧からページ名を引ける", () => {
+    const map = parseNipMap(README);
+    assert.equal(map.get("01"), "01.md");
+    assert.equal(map.get("23"), "23.md");
+    assert.equal(map.get("C7"), "C7.md");
+    assert.equal(map.get("99"), undefined);
 });
