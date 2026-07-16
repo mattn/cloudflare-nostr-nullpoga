@@ -490,7 +490,7 @@ async function doWhere(request: Request, env: Env): Promise<Response> {
             );
         }
     }
-    const nipMatches = [...content.matchAll(/NIP-?([0-9A-Z]+)/ig)];
+    const nipMatches = [...content.matchAll(/NIP[- ]?([0-9A-Z]+)/ig)];
     const kindMatches = [...content.matchAll(/KIND[- ]?([0-9]+)/ig)];
     if (nipMatches.length === 0 && kindMatches.length === 0) {
         return JSONResponse(null);
