@@ -1056,7 +1056,7 @@ async function doNattoruyarogai(request: Request, env: Env): Promise<Response> {
 async function doMeu(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
     const content = ("" + mention.content).trim();
-    if (!content.endsWith("めう")) {
+    if (!content.endsWith("めう") && !content.endsWith("めぅ")) {
         return JSONResponse(null);
     }
     return JSONResponse(
