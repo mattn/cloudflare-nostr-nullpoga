@@ -4,7 +4,6 @@ import {
     Event,
     finishEvent,
     getPublicKey,
-    nip04,
     nip19,
     nip57,
     relayInit,
@@ -25,7 +24,6 @@ import {
     parseBlockedPubkeys,
     parseKindMap,
     parseNipMap,
-    parseNwcUrl,
     parseZabuton,
 } from "./lib";
 
@@ -45,8 +43,9 @@ export interface Env {
     NULLPOGA_NSEC: string;
     POLICE5_NSEC: string;
     ETHERSCAN_APIKEY: string;
-    // 座布団 zap の支払いに使う NWC の接続文字列 (nostr+walletconnect://...)
-    NULLPOGA_NWC_URL: string;
+    // 座布団 zap の支払いを頼む oci-func-nwc-pay の URL と Bearer トークン
+    ZABUTON_PAY_URL: string;
+    ZABUTON_PAY_TOKEN: string;
     // 反応してほしくない人の npub/pubkey をカンマ(または空白)区切りで列挙する
     NULLPOGA_BLOCKED_PUBKEYS: string;
     ochinchinland: KVNamespace;
@@ -1832,93 +1831,29 @@ const ZABUTON_RELAYS = [
     "wss://nos.lol",
 ];
 
-// NWC (NIP-47) で invoice を支払う。成功なら null、失敗ならエラー文言を返す。
-async function payInvoiceWithNwc(
-    nwcUrl: string,
-    invoice: string,
-): Promise<string | null> {
-    const nwc = parseNwcUrl(nwcUrl || "");
-    if (nwc.error !== undefined) return `ウォレットの設定が読めません: ${nwc.error}`;
-
-    const content = await nip04.encrypt(
-        nwc.secret,
-        nwc.pubkey,
-        JSON.stringify({ method: "pay_invoice", params: { invoice } }),
-    );
-    const req = finishEvent({
-        kind: 23194,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [["p", nwc.pubkey]],
-        content,
-    }, nwc.secret);
-
-    // relayInit (new WebSocket) だと Cloudflare 配下のリレーに繋がらず理由も分からないので、
-    // Workers の fetch で WebSocket に Upgrade する
-    const res = await fetch(nwc.relay.replace(/^ws/, "http"), {
-        headers: { Upgrade: "websocket" },
+// 支払いは Oracle Cloud Functions の oci-func-nwc-pay に頼む。
+// coinos のリレーは Cloudflare Workers からの接続を 403 で弾くため、Workers の外から NWC で払う。
+// 成功なら null、失敗ならエラー文言を返す。
+async function payInvoice(env: Env, invoice: string): Promise<string | null> {
+    if (!env.ZABUTON_PAY_URL || !env.ZABUTON_PAY_TOKEN) {
+        return "支払い窓口の設定がありません";
+    }
+    const res = await fetch(env.ZABUTON_PAY_URL, {
+        method: "POST",
+        headers: {
+            "authorization": `Bearer ${env.ZABUTON_PAY_TOKEN}`,
+            "content-type": "application/json",
+        },
+        body: JSON.stringify({ invoice }),
     });
-    const ws = res.webSocket;
-    if (!ws) {
-        return `リレーに接続できませんでした (${res.status})`;
-    }
-    ws.accept();
+    let body: { ok?: boolean; error?: string };
     try {
-        return await new Promise<string | null>((resolve) => {
-            const subId = "zabuton";
-            const timer = setTimeout(
-                () => resolve("ウォレットから返事がありませんでした"),
-                30_000,
-            );
-            const done = (result: string | null) => {
-                clearTimeout(timer);
-                resolve(result);
-            };
-            ws.addEventListener("message", async (msg) => {
-                let data: any[];
-                try {
-                    data = JSON.parse(msg.data as string);
-                } catch (_e) {
-                    return;
-                }
-                if (data[0] === "OK" && data[1] === req.id && data[2] === false) {
-                    done(`リレーに拒否されました (${data[3]})`);
-                    return;
-                }
-                if (data[0] !== "EVENT" || data[1] !== subId) return;
-                const ev = data[2] as Event;
-                if (
-                    ev.pubkey !== nwc.pubkey || !verifySignature(ev) ||
-                    !ev.tags.some((t) => t[0] === "e" && t[1] === req.id)
-                ) {
-                    return;
-                }
-                try {
-                    const result = JSON.parse(
-                        await nip04.decrypt(nwc.secret, nwc.pubkey, ev.content),
-                    );
-                    done(
-                        result.error
-                            ? `${result.error.code}: ${result.error.message}`
-                            : null,
-                    );
-                } catch (_e) {
-                    done("ウォレットの返事が読めませんでした");
-                }
-            });
-            ws.addEventListener(
-                "close",
-                () => done("リレーとの接続が切れました"),
-            );
-            ws.send(JSON.stringify(["REQ", subId, {
-                kinds: [23195],
-                authors: [nwc.pubkey],
-                "#e": [req.id],
-            }]));
-            ws.send(JSON.stringify(["EVENT", req]));
-        });
-    } finally {
-        ws.close();
+        body = await res.json();
+    } catch (_e) {
+        return `支払い窓口から返事が読めませんでした (${res.status})`;
     }
+    if (!res.ok || !body.ok) return body.error || `(${res.status})`;
+    return null;
 }
 
 // 「山田君、npub1... 君に座布団3枚あげて」で相手に 3 sats zap する。
@@ -2026,7 +1961,7 @@ async function doZabuton(request: Request, env: Env): Promise<Response> {
 
     let err: string | null;
     try {
-        err = await payInvoiceWithNwc(env.NULLPOGA_NWC_URL, invoice);
+        err = await payInvoice(env, invoice);
     } catch (e) {
         err = String(e);
     }
