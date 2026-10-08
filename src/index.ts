@@ -1852,43 +1852,72 @@ async function payInvoiceWithNwc(
         content,
     }, nwc.secret);
 
-    const relay = relayInit(nwc.relay);
+    // relayInit (new WebSocket) だと Cloudflare 配下のリレーに繋がらず理由も分からないので、
+    // Workers の fetch で WebSocket に Upgrade する
+    const res = await fetch(nwc.relay.replace(/^ws/, "http"), {
+        headers: { Upgrade: "websocket" },
+    });
+    const ws = res.webSocket;
+    if (!ws) {
+        return `リレーに接続できませんでした (${res.status})`;
+    }
+    ws.accept();
     try {
-        await relay.connect();
         return await new Promise<string | null>((resolve) => {
-            const sub = relay.sub([{
-                kinds: [23195],
-                authors: [nwc.pubkey],
-                "#e": [req.id],
-            }]);
-            const timer = setTimeout(() => {
-                sub.unsub();
-                resolve("ウォレットから返事がありませんでした");
-            }, 30_000);
-            sub.on("event", async (ev: Event) => {
+            const subId = "zabuton";
+            const timer = setTimeout(
+                () => resolve("ウォレットから返事がありませんでした"),
+                30_000,
+            );
+            const done = (result: string | null) => {
                 clearTimeout(timer);
-                sub.unsub();
+                resolve(result);
+            };
+            ws.addEventListener("message", async (msg) => {
+                let data: any[];
                 try {
-                    const res = JSON.parse(
+                    data = JSON.parse(msg.data as string);
+                } catch (_e) {
+                    return;
+                }
+                if (data[0] === "OK" && data[1] === req.id && data[2] === false) {
+                    done(`リレーに拒否されました (${data[3]})`);
+                    return;
+                }
+                if (data[0] !== "EVENT" || data[1] !== subId) return;
+                const ev = data[2] as Event;
+                if (
+                    ev.pubkey !== nwc.pubkey || !verifySignature(ev) ||
+                    !ev.tags.some((t) => t[0] === "e" && t[1] === req.id)
+                ) {
+                    return;
+                }
+                try {
+                    const result = JSON.parse(
                         await nip04.decrypt(nwc.secret, nwc.pubkey, ev.content),
                     );
-                    resolve(
-                        res.error
-                            ? `${res.error.code}: ${res.error.message}`
+                    done(
+                        result.error
+                            ? `${result.error.code}: ${result.error.message}`
                             : null,
                     );
                 } catch (_e) {
-                    resolve("ウォレットの返事が読めませんでした");
+                    done("ウォレットの返事が読めませんでした");
                 }
             });
-            relay.publish(req).catch(() => {
-                clearTimeout(timer);
-                sub.unsub();
-                resolve("ウォレットに依頼を送れませんでした");
-            });
+            ws.addEventListener(
+                "close",
+                () => done("リレーとの接続が切れました"),
+            );
+            ws.send(JSON.stringify(["REQ", subId, {
+                kinds: [23195],
+                authors: [nwc.pubkey],
+                "#e": [req.id],
+            }]));
+            ws.send(JSON.stringify(["EVENT", req]));
         });
     } finally {
-        relay.close();
+        ws.close();
     }
 }
 
