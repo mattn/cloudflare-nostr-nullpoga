@@ -1838,7 +1838,7 @@ async function payInvoiceWithNwc(
     invoice: string,
 ): Promise<string | null> {
     const nwc = parseNwcUrl(nwcUrl || "");
-    if (nwc === null) return "ウォレットの設定がありません";
+    if (nwc.error !== undefined) return `ウォレットの設定が読めません: ${nwc.error}`;
 
     const content = await nip04.encrypt(
         nwc.secret,

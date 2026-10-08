@@ -312,17 +312,37 @@ export function bolt11AmountMsat(invoice: string): number | null {
 // nostr+walletconnect://<pubkey>?relay=...&secret=... を分解する。
 // nostr-tools v1 の nip47.parseConnectionString は pathname を見ていて
 // pubkey が取れないので自前で解釈する。
+// 読めない時は error に「どこがおかしいか」を入れる。返信に出すので秘密の値は含めない。
 export function parseNwcUrl(
     url: string,
-): { pubkey: string; relay: string; secret: string } | null {
-    // 古い nostrwalletconnect:// 形式や、引用符付きで登録された値も受け付ける
-    const m = url.trim().replace(/^["']|["']$/g, "").match(
-        /^nostr\+?walletconnect:(?:\/\/)?([0-9a-fA-F]{64})\/?\?(.*)$/,
-    );
-    if (!m) return null;
-    const params = new URLSearchParams(m[2]);
+):
+    | { pubkey: string; relay: string; secret: string; error?: undefined }
+    | { error: string } {
+    // 古い nostrwalletconnect:// 形式や、引用符・空白付き、JSON からコピーして
+    // & が \u0026 のままになった値も受け付ける
+    const v = url.replace(/\s+/g, "").replace(/^["']|["']$/g, "")
+        .replace(/\\u0026/gi, "&");
+    if (v === "") return { error: "未設定" };
+    const scheme = v.match(/^nostr\+?walletconnect:(?:\/\/)?/i);
+    if (!scheme) return { error: `先頭が nostr+walletconnect:// ではありません (長さ ${v.length})` };
+    const rest = v.slice(scheme[0].length);
+    const q = rest.indexOf("?");
+    if (q < 0) return { error: "? 以降のパラメータがありません" };
+    const pubkey = rest.slice(0, q).replace(/\/$/, "").toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pubkey)) {
+        return { error: `pubkey が64桁の hex ではありません (長さ ${pubkey.length})` };
+    }
+    const params = new URLSearchParams(rest.slice(q + 1));
     const relay = params.get("relay");
+    if (!relay) {
+        return { error: `relay がありません (パラメータ: ${[...params.keys()].join(",")})` };
+    }
     const secret = params.get("secret")?.toLowerCase();
-    if (!relay || !secret || !/^[0-9a-f]{64}$/.test(secret)) return null;
-    return { pubkey: m[1].toLowerCase(), relay, secret };
+    if (!secret) {
+        return { error: `secret がありません (パラメータ: ${[...params.keys()].join(",")})` };
+    }
+    if (!/^[0-9a-f]{64}$/.test(secret)) {
+        return { error: `secret が64桁の hex ではありません (長さ ${secret.length})` };
+    }
+    return { pubkey, relay, secret };
 }

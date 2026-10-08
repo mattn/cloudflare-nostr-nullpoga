@@ -347,7 +347,18 @@ test("parseNwcUrl: NWC の接続文字列を分解する", () => {
         parseNwcUrl(`"nostrwalletconnect://${ZABUTON_HEX}?relay=wss://relay.getalby.com/v1&relay=wss://r2&secret=${secret}&lud16=a@getalby.com"`),
         { pubkey: ZABUTON_HEX, relay: "wss://relay.getalby.com/v1", secret },
     );
-    assert.equal(parseNwcUrl(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r`), null);
-    assert.equal(parseNwcUrl("https://example.com"), null);
-    assert.equal(parseNwcUrl(""), null);
+    // JSON からコピーして & が \u0026 のまま
+    assert.deepEqual(
+        parseNwcUrl(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://relay.getalby.com/v1\\u0026secret=${secret}\\u0026lud16=a@getalby.com`),
+        { pubkey: ZABUTON_HEX, relay: "wss://relay.getalby.com/v1", secret },
+    );
+    const err = (u: string) => (parseNwcUrl(u) as { error: string }).error;
+    assert.match(err(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r`), /secret がありません \(パラメータ: relay\)/);
+    assert.match(err(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r&secret=abc`), /secret が64桁の hex ではありません \(長さ 3\)/);
+    assert.match(err(`nostr+walletconnect://abc?relay=wss://r&secret=${secret}`), /pubkey が64桁/);
+    assert.match(err(`nostr+walletconnect://${ZABUTON_HEX}?secret=${secret}`), /relay がありません/);
+    assert.match(err("https://example.com"), /先頭が/);
+    assert.equal(err(""), "未設定");
+    // 秘密の値はエラーに含めない
+    assert.ok(!err(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r&secret=${secret}x`).includes(secret));
 });
