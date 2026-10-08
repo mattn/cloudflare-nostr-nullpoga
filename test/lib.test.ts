@@ -342,6 +342,11 @@ test("parseNwcUrl: NWC の接続文字列を分解する", () => {
         relay: "wss://relay.example.com",
         secret,
     });
+    // Alby の古い形式、複数 relay、lud16 付き、引用符付き
+    assert.deepEqual(
+        parseNwcUrl(`"nostrwalletconnect://${ZABUTON_HEX}?relay=wss://relay.getalby.com/v1&relay=wss://r2&secret=${secret}&lud16=a@getalby.com"`),
+        { pubkey: ZABUTON_HEX, relay: "wss://relay.getalby.com/v1", secret },
+    );
     assert.equal(parseNwcUrl(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r`), null);
     assert.equal(parseNwcUrl("https://example.com"), null);
     assert.equal(parseNwcUrl(""), null);

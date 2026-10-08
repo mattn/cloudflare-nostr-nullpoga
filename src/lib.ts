@@ -315,11 +315,14 @@ export function bolt11AmountMsat(invoice: string): number | null {
 export function parseNwcUrl(
     url: string,
 ): { pubkey: string; relay: string; secret: string } | null {
-    const m = url.trim().match(/^nostr\+walletconnect:(?:\/\/)?([0-9a-f]{64})\?(.*)$/);
+    // 古い nostrwalletconnect:// 形式や、引用符付きで登録された値も受け付ける
+    const m = url.trim().replace(/^["']|["']$/g, "").match(
+        /^nostr\+?walletconnect:(?:\/\/)?([0-9a-fA-F]{64})\/?\?(.*)$/,
+    );
     if (!m) return null;
     const params = new URLSearchParams(m[2]);
     const relay = params.get("relay");
-    const secret = params.get("secret");
+    const secret = params.get("secret")?.toLowerCase();
     if (!relay || !secret || !/^[0-9a-f]{64}$/.test(secret)) return null;
-    return { pubkey: m[1], relay, secret };
+    return { pubkey: m[1].toLowerCase(), relay, secret };
 }
