@@ -1853,8 +1853,8 @@ async function payInvoiceWithNwc(
     }, nwc.secret);
 
     const relay = relayInit(nwc.relay);
-    await relay.connect();
     try {
+        await relay.connect();
         return await new Promise<string | null>((resolve) => {
             const sub = relay.sub([{
                 kinds: [23195],
@@ -1907,6 +1907,7 @@ async function doZabuton(request: Request, env: Env): Promise<Response> {
     ) {
         return JSONResponse(null);
     }
+    if (mention.pubkey === NULLPOGA_NPUB) return JSONResponse(null);
     const zabuton = parseZabuton(mention.content);
     if (zabuton === null) return JSONResponse(null);
     const reply = (message: string) =>
@@ -1945,12 +1946,18 @@ async function doZabuton(request: Request, env: Env): Promise<Response> {
             kinds: [0],
             authors: [zabuton.target],
         });
+    } catch (e) {
+        console.log(e);
+        profile = null;
     } finally {
         pool.close(ZABUTON_RELAYS);
     }
     if (profile === null || !verifySignature(profile)) {
         return reply(`${name} 君のプロフィールが見つかりませんでした`);
     }
+    // nostr-tools は fetch をモジュール読み込み時に退避して this 無しで呼ぶので、
+    // Workers では Illegal invocation になる。bind したものを渡しておく。
+    nip57.useFetchImplementation(fetch.bind(globalThis));
     const callback = await nip57.getZapEndpoint(profile as Event<0>);
     if (callback === null) {
         return reply(`${name} 君は zap を受け取れないようです`);
@@ -1988,7 +1995,12 @@ async function doZabuton(request: Request, env: Env): Promise<Response> {
         return reply(`${name} 君の請求額がおかしいので座布団はなしです`);
     }
 
-    const err = await payInvoiceWithNwc(env.NULLPOGA_NWC_URL, invoice);
+    let err: string | null;
+    try {
+        err = await payInvoiceWithNwc(env.NULLPOGA_NWC_URL, invoice);
+    } catch (e) {
+        err = String(e);
+    }
     if (err !== null) {
         console.log(err);
         return reply(`座布団を運ぶのに失敗しました (${err})`);
