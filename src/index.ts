@@ -821,16 +821,50 @@ async function doHowMuchMattn(request: Request, env: Env): Promise<Response> {
     );
 }
 
+async function getBtcPriceUsd(): Promise<number | null> {
+    try {
+        const res = await fetch(
+            "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+        );
+        if (res.ok) {
+            const data: { [name: string]: any } = await res.json();
+            const usd = Number(data.bitcoin?.usd);
+            if (Number.isFinite(usd) && usd > 0) return usd;
+        }
+    } catch (e) {
+        console.log(e);
+    }
+    try {
+        const res = await fetch(
+            "https://api.coinbase.com/v2/prices/BTC-USD/spot",
+        );
+        if (res.ok) {
+            const data: { [name: string]: any } = await res.json();
+            const usd = Number(data.data?.amount);
+            if (Number.isFinite(usd) && usd > 0) return usd;
+        }
+    } catch (e) {
+        console.log(e);
+    }
+    return null;
+}
+
 async function doHowMuchSats(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    const m = mention.content.match(/^([0-9]+)\s*sats?\s*いくら$/i);
-    const sats = m ? Number(m[1].trim()) : 0;
+    const m = mention.content.match(/^([0-9,]+)\s*sats?\s*いくら$/i);
+    const sats = m ? Number(m[1].replace(/,/g, "")) : 0;
 
-    const btcUsdRes = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
-    );
-    const btcUsdData: { [name: string]: any } = await btcUsdRes.json();
-    const btcPriceUsd = btcUsdData.bitcoin?.usd; // USD per 1 BTC
+    const btcPriceUsd = await getBtcPriceUsd(); // USD per 1 BTC
+    if (btcPriceUsd === null) {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "BTC の価格が取得できませんでした",
+                [],
+            ),
+        );
+    }
     const satsPriceUsd = btcPriceUsd / 100_000_000; // USD per 1 sats
 
     const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
@@ -858,14 +892,20 @@ async function doHowMuchSats(request: Request, env: Env): Promise<Response> {
 
 async function doHowMuchBtc(request: Request, env: Env): Promise<Response> {
     const mention: Event = await request.json();
-    const m = mention.content.match(/^([0-9]+)\s*BTC?\s*いくら$/i);
-    const btc = m ? Number(m[1].trim()) : 0;
+    const m = mention.content.match(/^([0-9,.]+)\s*BTC?\s*いくら$/i);
+    const btc = m ? Number(m[1].replace(/,/g, "")) : 0;
 
-    const btcUsdRes = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
-    );
-    const btcUsdData: { [name: string]: any } = await btcUsdRes.json();
-    const btcPriceUsd = btcUsdData.bitcoin?.usd; // USD per 1 BTC
+    const btcPriceUsd = await getBtcPriceUsd(); // USD per 1 BTC
+    if (btcPriceUsd === null) {
+        return JSONResponse(
+            createReplyWithTags(
+                env.NULLPOGA_NSEC,
+                mention,
+                "BTC の価格が取得できませんでした",
+                [],
+            ),
+        );
+    }
 
     const res = await fetch("https://www.gaitameonline.com/rateaj/getrate");
     if (!res.ok) {
