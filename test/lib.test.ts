@@ -5,6 +5,7 @@ import { getPublicKey, nip19, verifySignature } from "nostr-tools";
 
 import {
     bearerAuthentication,
+    bolt11AmountMsat,
     createLike,
     createNoteWithTags,
     createReplyWithTags,
@@ -14,7 +15,10 @@ import {
     meuify,
     parseBlockedPubkeys,
     parseKindMap,
+    parseJapaneseNumber,
     parseNipMap,
+    parseNwcUrl,
+    parseZabuton,
 } from "../src/lib.ts";
 
 // テスト用の固定鍵ペア
@@ -260,4 +264,85 @@ test("parseNipMap: NIP 一覧からページ名を引ける", () => {
     assert.equal(map.get("23"), "23.md");
     assert.equal(map.get("C7"), "C7.md");
     assert.equal(map.get("99"), undefined);
+});
+
+test("parseJapaneseNumber: 算用数字と漢数字", () => {
+    assert.equal(parseJapaneseNumber("3"), 3);
+    assert.equal(parseJapaneseNumber("１０"), 10);
+    assert.equal(parseJapaneseNumber("三"), 3);
+    assert.equal(parseJapaneseNumber("十"), 10);
+    assert.equal(parseJapaneseNumber("十二"), 12);
+    assert.equal(parseJapaneseNumber("二十"), 20);
+    assert.equal(parseJapaneseNumber("九十九"), 99);
+    assert.equal(parseJapaneseNumber(""), null);
+    assert.equal(parseJapaneseNumber("三三"), null);
+    assert.equal(parseJapaneseNumber("十十"), null);
+    assert.equal(parseJapaneseNumber("百"), null);
+});
+
+const ZABUTON_NPUB =
+    "npub1937vv2nf06360qn9y8el6d8sevnndy7tuh5nzre4gj05xc32tnwqauhaj6";
+const ZABUTON_HEX =
+    "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a5cdc";
+
+test("parseZabuton: 座布団をあげる", () => {
+    assert.deepEqual(
+        parseZabuton(`山田君、${ZABUTON_NPUB} 君に座布団3枚あげて`),
+        { kind: "give", target: ZABUTON_HEX, count: 3 },
+    );
+    assert.deepEqual(
+        parseZabuton(`山田くん nostr:${ZABUTON_NPUB}に座布団 三 枚やって！`),
+        { kind: "give", target: ZABUTON_HEX, count: 3 },
+    );
+    const nprofile = nip19.nprofileEncode({ pubkey: ZABUTON_HEX });
+    assert.deepEqual(
+        parseZabuton(`山田君、${nprofile} さんに座布団１０枚あげて`),
+        { kind: "give", target: ZABUTON_HEX, count: 10 },
+    );
+});
+
+test("parseZabuton: 座布団全部持ってって", () => {
+    assert.deepEqual(
+        parseZabuton(`山田君、${ZABUTON_NPUB} 君の座布団全部持ってって`),
+        { kind: "takeAll", target: ZABUTON_HEX },
+    );
+});
+
+test("parseZabuton: 該当しない・不正な入力", () => {
+    assert.equal(parseZabuton("座布団3枚あげて"), null);
+    assert.equal(parseZabuton(`${ZABUTON_NPUB} 君に座布団3枚あげて`), null);
+    assert.equal(parseZabuton("山田君、npub1abc 君に座布団3枚あげて"), null);
+    // 前後に余計な文があるものは受け付けない
+    assert.equal(
+        parseZabuton(`山田君、${ZABUTON_NPUB} 君に座布団3枚あげて、と言ったら`),
+        null,
+    );
+    const note = nip19.noteEncode(ZABUTON_HEX);
+    assert.equal(parseZabuton(`山田君、${note} 君に座布団3枚あげて`), null);
+});
+
+test("bolt11AmountMsat: 金額を msat で返す", () => {
+    assert.equal(bolt11AmountMsat("lnbc30n1pjqqqqq"), 3000);
+    assert.equal(bolt11AmountMsat("lnbc10u1pjqqqqq"), 1_000_000);
+    assert.equal(bolt11AmountMsat("lnbc1m1pjqqqqq"), 100_000_000);
+    assert.equal(bolt11AmountMsat("lnbc1500p1pjqqqqq"), 150);
+    assert.equal(bolt11AmountMsat("LNBC30N1PJQQQQQ"), 3000);
+    assert.equal(bolt11AmountMsat("lntbs30n1pjqqqqq"), 3000);
+    // 金額なし・sub-msat・不正
+    assert.equal(bolt11AmountMsat("lnbc1pjqqqqq"), null);
+    assert.equal(bolt11AmountMsat("lnbc15p1pjqqqqq"), null);
+    assert.equal(bolt11AmountMsat("hello"), null);
+});
+
+test("parseNwcUrl: NWC の接続文字列を分解する", () => {
+    const secret = "11".repeat(32);
+    const url = `nostr+walletconnect://${ZABUTON_HEX}?relay=wss%3A%2F%2Frelay.example.com&secret=${secret}`;
+    assert.deepEqual(parseNwcUrl(url), {
+        pubkey: ZABUTON_HEX,
+        relay: "wss://relay.example.com",
+        secret,
+    });
+    assert.equal(parseNwcUrl(`nostr+walletconnect://${ZABUTON_HEX}?relay=wss://r`), null);
+    assert.equal(parseNwcUrl("https://example.com"), null);
+    assert.equal(parseNwcUrl(""), null);
 });

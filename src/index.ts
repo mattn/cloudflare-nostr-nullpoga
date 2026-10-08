@@ -2,13 +2,19 @@
 
 import {
     Event,
+    finishEvent,
     getPublicKey,
+    nip04,
     nip19,
+    nip57,
     relayInit,
     SimplePool,
+    validateEvent,
+    verifySignature,
 } from "nostr-tools";
 import {
     bearerAuthentication,
+    bolt11AmountMsat,
     createLike,
     createNoteWithTags,
     createReplyWithTags,
@@ -19,6 +25,8 @@ import {
     parseBlockedPubkeys,
     parseKindMap,
     parseNipMap,
+    parseNwcUrl,
+    parseZabuton,
 } from "./lib";
 
 const cache = caches.default;
@@ -37,6 +45,8 @@ export interface Env {
     NULLPOGA_NSEC: string;
     POLICE5_NSEC: string;
     ETHERSCAN_APIKEY: string;
+    // 座布団 zap の支払いに使う NWC の接続文字列 (nostr+walletconnect://...)
+    NULLPOGA_NWC_URL: string;
     // 反応してほしくない人の npub/pubkey をカンマ(または空白)区切りで列挙する
     NULLPOGA_BLOCKED_PUBKEYS: string;
     ochinchinland: KVNamespace;
@@ -1808,6 +1818,184 @@ async function doCurry(request: Request, env: Env): Promise<Response> {
     }
 }
 
+// 座布団をあげられる司会者 (mattn) の pubkey。固定。
+const ZABUTON_HOST_PUBKEY =
+    "2c7cc62a697ea3a7826521f3fd34f0cb273693cbe5e9310f35449f43622a5cdc";
+// 1 回にあげられる座布団の上限 (1 枚 = 1 sat)
+const ZABUTON_MAX = 10;
+// これより古い (または未来の) 投稿は再送とみなして無視する
+const ZABUTON_MAX_AGE_SEC = 300;
+const ZABUTON_RELAYS = [
+    "wss://yabu.me",
+    "wss://relay-jp.nostr.wirednet.jp",
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+];
+
+// NWC (NIP-47) で invoice を支払う。成功なら null、失敗ならエラー文言を返す。
+async function payInvoiceWithNwc(
+    nwcUrl: string,
+    invoice: string,
+): Promise<string | null> {
+    const nwc = parseNwcUrl(nwcUrl || "");
+    if (nwc === null) return "ウォレットの設定がありません";
+
+    const content = await nip04.encrypt(
+        nwc.secret,
+        nwc.pubkey,
+        JSON.stringify({ method: "pay_invoice", params: { invoice } }),
+    );
+    const req = finishEvent({
+        kind: 23194,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [["p", nwc.pubkey]],
+        content,
+    }, nwc.secret);
+
+    const relay = relayInit(nwc.relay);
+    await relay.connect();
+    try {
+        return await new Promise<string | null>((resolve) => {
+            const sub = relay.sub([{
+                kinds: [23195],
+                authors: [nwc.pubkey],
+                "#e": [req.id],
+            }]);
+            const timer = setTimeout(() => {
+                sub.unsub();
+                resolve("ウォレットから返事がありませんでした");
+            }, 30_000);
+            sub.on("event", async (ev: Event) => {
+                clearTimeout(timer);
+                sub.unsub();
+                try {
+                    const res = JSON.parse(
+                        await nip04.decrypt(nwc.secret, nwc.pubkey, ev.content),
+                    );
+                    resolve(
+                        res.error
+                            ? `${res.error.code}: ${res.error.message}`
+                            : null,
+                    );
+                } catch (_e) {
+                    resolve("ウォレットの返事が読めませんでした");
+                }
+            });
+            relay.publish(req).catch(() => {
+                clearTimeout(timer);
+                sub.unsub();
+                resolve("ウォレットに依頼を送れませんでした");
+            });
+        });
+    } finally {
+        relay.close();
+    }
+}
+
+// 「山田君、npub1... 君に座布団3枚あげて」で相手に 3 sats zap する。
+async function doZabuton(request: Request, env: Env): Promise<Response> {
+    const mention: Event = await request.json();
+
+    // 署名が正しく、司会者本人の、新しい投稿だけを受け付ける
+    if (!validateEvent(mention) || !verifySignature(mention)) {
+        return JSONResponse(null);
+    }
+    if (mention.kind !== 1 && mention.kind !== 42) return JSONResponse(null);
+    if (
+        Math.abs(Math.floor(Date.now() / 1000) - mention.created_at) >
+            ZABUTON_MAX_AGE_SEC
+    ) {
+        return JSONResponse(null);
+    }
+    const zabuton = parseZabuton(mention.content);
+    if (zabuton === null) return JSONResponse(null);
+    const reply = (message: string) =>
+        JSONResponse(
+            createReplyWithTags(env.NULLPOGA_NSEC, mention, message, [
+                ["p", zabuton.target],
+            ]),
+        );
+    if (mention.pubkey !== ZABUTON_HOST_PUBKEY) {
+        return reply("座布団を配れるのは司会者だけです");
+    }
+
+    const name = `nostr:${nip19.npubEncode(zabuton.target)}`;
+    if (zabuton.kind === "takeAll") {
+        return reply(`はい、${name} 君の座布団全部持ってきまーす`);
+    }
+    if (zabuton.count < 1 || zabuton.count > ZABUTON_MAX) {
+        return reply(`座布団は1回に${ZABUTON_MAX}枚までです`);
+    }
+    const sk = nip19.decode(env.NULLPOGA_NSEC).data as string;
+    if (zabuton.target === getPublicKey(sk)) {
+        return reply("山田は座布団をもらえません");
+    }
+
+    // 同じ投稿で二度払わないよう、支払いの前に印を付ける
+    const doneKey = `zabuton:${mention.id}`;
+    if (await env.ochinchinland.get(doneKey) !== null) {
+        return JSONResponse(null);
+    }
+    await env.ochinchinland.put(doneKey, "1", { expirationTtl: 86400 });
+
+    const pool = new SimplePool();
+    let profile: Event | null;
+    try {
+        profile = await pool.get(ZABUTON_RELAYS, {
+            kinds: [0],
+            authors: [zabuton.target],
+        });
+    } finally {
+        pool.close(ZABUTON_RELAYS);
+    }
+    if (profile === null || !verifySignature(profile)) {
+        return reply(`${name} 君のプロフィールが見つかりませんでした`);
+    }
+    const callback = await nip57.getZapEndpoint(profile as Event<0>);
+    if (callback === null) {
+        return reply(`${name} 君は zap を受け取れないようです`);
+    }
+
+    const amount = zabuton.count * 1000; // msat
+    const zapRequest = finishEvent(
+        nip57.makeZapRequest({
+            profile: zabuton.target,
+            event: null,
+            amount,
+            relays: ZABUTON_RELAYS,
+            comment: `座布団${zabuton.count}枚`,
+        }),
+        sk,
+    );
+    const u = new URL(callback);
+    u.searchParams.set("amount", String(amount));
+    u.searchParams.set("nostr", JSON.stringify(zapRequest));
+    let invoice: string;
+    try {
+        const res = await fetch(u.toString());
+        const body: { [name: string]: any } = await res.json();
+        if (typeof body.pr !== "string") {
+            console.log(body);
+            return reply(`${name} 君に座布団を渡せませんでした`);
+        }
+        invoice = body.pr;
+    } catch (e) {
+        console.log(e);
+        return reply(`${name} 君に座布団を渡せませんでした`);
+    }
+    // 相手のサーバーが頼んだ額と違う invoice を返してきたら払わない
+    if (bolt11AmountMsat(invoice) !== amount) {
+        return reply(`${name} 君の請求額がおかしいので座布団はなしです`);
+    }
+
+    const err = await payInvoiceWithNwc(env.NULLPOGA_NWC_URL, invoice);
+    if (err !== null) {
+        console.log(err);
+        return reply(`座布団を運ぶのに失敗しました (${err})`);
+    }
+    return reply(`はい、${name} 君に座布団${zabuton.count}枚！`);
+}
+
 export default {
     async fetch(
         request: Request,
@@ -1971,6 +2159,8 @@ export default {
                     return doKyomonan(request, env);
                 case "brassicaceae":
                     return doBrassicaceae(request, env);
+                case "zabuton":
+                    return doZabuton(request, env);
                 case "":
                     return doNullpoGa(request, env);
             }

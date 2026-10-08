@@ -237,3 +237,89 @@ export function findNostrRef(
     }
     return null;
 }
+
+// 「一」〜「九十九」までの漢数字、または半角/全角の算用数字を数値にする。
+export function parseJapaneseNumber(s: string): number | null {
+    const half = s.replace(/[０-９]/g, (c) =>
+        String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+    if (/^[0-9]+$/.test(half)) return Number(half);
+    const digits: { [k: string]: number } = {
+        "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+        "六": 6, "七": 7, "八": 8, "九": 9,
+    };
+    const m = s.match(/^([一二三四五六七八九]?)(十?)([一二三四五六七八九]?)$/);
+    if (!m || s === "") return null;
+    if (m[2] === "") {
+        return m[1] !== "" && m[3] === "" ? digits[m[1]] : null;
+    }
+    return (m[1] ? digits[m[1]] : 1) * 10 + (m[3] ? digits[m[3]] : 0);
+}
+
+export type Zabuton =
+    | { kind: "give"; target: string; count: number }
+    | { kind: "takeAll"; target: string };
+
+// 「山田君、npub1... 君に座布団3枚あげて」を解釈する。
+// 相手は npub / nprofile (nostr: 付きも可) で指定し、hex pubkey にして返す。
+export function parseZabuton(content: string): Zabuton | null {
+    const head = "^山田(?:君|くん)[、,，\\s]*(?:nostr:)?((?:npub|nprofile)1[02-9ac-hj-np-z]+)\\s*(?:君|くん|さん|ちゃん)?";
+    const give = content.trim().match(
+        new RegExp(head + "に座布団\\s*([0-9０-９]+|[一二三四五六七八九十]+)\\s*枚\\s*(?:あげて|やって|あげなさい)[!！。]*$"),
+    );
+    const take = content.trim().match(
+        new RegExp(head + "の座布団\\s*全部\\s*(?:持ってって|持っていって|取って|とって)[!！。]*$"),
+    );
+    const m = give || take;
+    if (!m) return null;
+    let target: string;
+    try {
+        const decoded = nip19.decode(m[1]);
+        if (decoded.type === "npub") target = decoded.data as string;
+        else if (decoded.type === "nprofile") {
+            target = (decoded.data as nip19.ProfilePointer).pubkey;
+        } else return null;
+    } catch (_e) {
+        return null;
+    }
+    if (take) return { kind: "takeAll", target };
+    const count = parseJapaneseNumber(m[2]);
+    if (count === null) return null;
+    return { kind: "give", target, count };
+}
+
+// bolt11 invoice の金額を msat で返す。金額なし・不正な invoice は null。
+// 相手の LNURL サーバーが指定額と違う invoice を返してきた時に弾くために使う。
+export function bolt11AmountMsat(invoice: string): number | null {
+    const lower = invoice.toLowerCase();
+    const sep = lower.lastIndexOf("1");
+    if (sep < 0) return null;
+    const m = lower.slice(0, sep).match(/^ln(?:bc|tbs|tb|bcrt)([0-9]+)([munp]?)$/);
+    if (!m) return null;
+    const n = BigInt(m[1]);
+    // 1 BTC = 100,000,000,000 msat
+    const msat = ({
+        "": n * 100_000_000_000n,
+        "m": n * 100_000_000n,
+        "u": n * 100_000n,
+        "n": n * 100n,
+        "p": n / 10n,
+    } as { [k: string]: bigint })[m[2]];
+    if (m[2] === "p" && n % 10n !== 0n) return null;
+    if (msat > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+    return Number(msat);
+}
+
+// nostr+walletconnect://<pubkey>?relay=...&secret=... を分解する。
+// nostr-tools v1 の nip47.parseConnectionString は pathname を見ていて
+// pubkey が取れないので自前で解釈する。
+export function parseNwcUrl(
+    url: string,
+): { pubkey: string; relay: string; secret: string } | null {
+    const m = url.trim().match(/^nostr\+walletconnect:(?:\/\/)?([0-9a-f]{64})\?(.*)$/);
+    if (!m) return null;
+    const params = new URLSearchParams(m[2]);
+    const relay = params.get("relay");
+    const secret = params.get("secret");
+    if (!relay || !secret || !/^[0-9a-f]{64}$/.test(secret)) return null;
+    return { pubkey: m[1], relay, secret };
+}
